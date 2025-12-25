@@ -1,15 +1,18 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AgGridAngular } from 'ag-grid-angular';
-import { ColDef, GridApi, GridReadyEvent, ValueSetterParams } from 'ag-grid-community';
+import { ColDef, GridApi, GridReadyEvent, ValueSetterParams, ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community';
 import { Subject, forkJoin, debounceTime, takeUntil } from 'rxjs';
 
 import { ParameterRegistryService } from '../../services/parameter-registry.service';
 import { SimulationService } from '../../services/simulation.service';
 import { StorageService } from '../../services/storage.service';
-import { ParameterDefinition, ParameterType } from '../../models/parameter.model';
+import { ParameterDefinition, ParameterType, ParameterFormat } from '../../models/parameter.model';
 import { SimulationColumn } from '../../models/simulation-column.model';
 import { SimulationResult } from '../../models/simulation-result.model';
+
+// Register AG Grid modules
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 interface GridRow {
   rowType: 'result' | 'group' | 'parameter';
@@ -36,14 +39,19 @@ export class SimulationGridComponent implements OnInit, OnDestroy {
   rowData: GridRow[] = [];
   defaultColDef: ColDef = {
     flex: 1,
-    minWidth: 120,
+    minWidth: 100,
     editable: false,
     sortable: false,
     filter: false
   };
+  
+  rowHeight = 32;
 
   columns: SimulationColumn[] = [];
   results: Map<string, SimulationResult> = new Map();
+  expandedGroups: Map<string, boolean> = new Map();
+  
+  theme = themeQuartz;
 
   constructor(
     private parameterRegistry: ParameterRegistryService,
@@ -53,9 +61,15 @@ export class SimulationGridComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.initializeColumns();
+    this.initializeExpandedGroups();
     this.setupColumnDefinitions();
     this.buildRowData();
     this.setupAutoSave();
+  }
+
+  private initializeExpandedGroups(): void {
+    const groups = this.parameterRegistry.getGroups();
+    groups.forEach(group => this.expandedGroups.set(group, true));
   }
 
   ngOnDestroy(): void {
@@ -92,14 +106,28 @@ export class SimulationGridComponent implements OnInit, OnDestroy {
         headerName: 'Parameter',
         field: 'label',
         pinned: 'left',
-        width: 200,
+        width: 180,
+        cellRenderer: (params: any) => {
+          const row = params.data as GridRow;
+          if (row.rowType === 'group' && row.group) {
+            const isExpanded = this.expandedGroups.get(row.group);
+            const icon = isExpanded ? '▼' : '▶';
+            return `<span style="cursor: pointer;">${icon} ${params.value}</span>`;
+          }
+          return params.value;
+        },
         cellStyle: (params) => {
           if (params.data.rowType === 'result') {
             return { fontWeight: 'bold', backgroundColor: '#e3f2fd' } as any;
           } else if (params.data.rowType === 'group') {
-            return { fontWeight: 'bold', backgroundColor: '#f5f5f5', fontStyle: 'italic' } as any;
+            return { fontWeight: 'bold', backgroundColor: '#f5f5f5', fontStyle: 'italic', cursor: 'pointer' } as any;
           }
           return { paddingLeft: '20px' } as any;
+        },
+        onCellClicked: (params) => {
+          if (params.data.rowType === 'group' && params.data.group) {
+            this.toggleGroup(params.data.group);
+          }
         }
       }
     ];
@@ -110,9 +138,54 @@ export class SimulationGridComponent implements OnInit, OnDestroy {
         headerName: col.name,
         field: col.id,
         editable: (params) => params.data.rowType === 'parameter',
-        cellEditor: this.getCellEditor.bind(this),
-        cellEditorParams: this.getCellEditorParams.bind(this),
+        cellEditorSelector: (params) => {
+          const row = params.data as GridRow;
+          if (!row.parameterDef || row.rowType !== 'parameter') {
+            return undefined;
+          }
+
+          switch (row.parameterDef.type) {
+            case ParameterType.BOOLEAN:
+              return {
+                component: 'agSelectCellEditor',
+                params: {
+                  values: ['Yes', 'No']
+                }
+              };
+            case ParameterType.DROPDOWN:
+              return {
+                component: 'agSelectCellEditor',
+                params: {
+                  values: row.parameterDef.dropdownOptions?.map(opt => opt.value) || []
+                }
+              };
+            case ParameterType.NUMBER:
+              const precision = this.getPrecisionFromStep(row.parameterDef.step);
+              const isPercentage = row.parameterDef.format === ParameterFormat.PERCENTAGE;
+              return {
+                component: 'agNumberCellEditor',
+                params: {
+                  min: isPercentage ? (row.parameterDef.min || 0) * 100 : row.parameterDef.min,
+                  max: isPercentage ? (row.parameterDef.max || 100) * 100 : row.parameterDef.max,
+                  precision: isPercentage ? 2 : precision
+                },
+                popup: false
+              };
+            default:
+              return {
+                component: 'agTextCellEditor'
+              };
+          }
+        },
         valueSetter: this.valueSetter.bind(this),
+        valueParser: (params) => {
+          const row = params.data as GridRow;
+          // For percentage parameters, convert user input to decimal for storage
+          if (row.rowType === 'parameter' && row.parameterDef?.format === ParameterFormat.PERCENTAGE) {
+            return typeof params.newValue === 'number' ? params.newValue / 100 : params.newValue;
+          }
+          return params.newValue;
+        },
         valueGetter: (params) => {
           const row = params.data as GridRow;
           if (row.rowType === 'result') {
@@ -131,52 +204,37 @@ export class SimulationGridComponent implements OnInit, OnDestroy {
             return '-';
           } else if (row.rowType === 'parameter' && row.parameterId) {
             const paramValue = col.parameters.find(p => p.parameterId === row.parameterId);
-            return this.formatValue(paramValue?.value, row.parameterDef);
+            // For percentage parameters, show as whole numbers for editing (0.06 -> 6)
+            if (row.parameterDef?.format === ParameterFormat.PERCENTAGE && typeof paramValue?.value === 'number') {
+              return paramValue.value * 100;
+            }
+            return paramValue?.value;
           }
           return '';
         },
+        valueFormatter: (params) => {
+          const row = params.data as GridRow;
+          if (row.rowType === 'parameter' && row.parameterId && params.value !== undefined && params.value !== null) {
+            // For percentage parameters, the value from valueGetter is already multiplied by 100
+            // So we just need to add the % symbol, not multiply again
+            if (row.parameterDef?.format === ParameterFormat.PERCENTAGE) {
+              return typeof params.value === 'number' ? `${params.value.toFixed(2)}%` : String(params.value);
+            }
+            return this.formatValue(params.value, row.parameterDef);
+          }
+          return params.value;
+        },
         cellStyle: (params) => {
-          if (params.data.rowType === 'result') {
-            return { fontWeight: 'bold', backgroundColor: '#e8f5e9' } as any;
+          const row = params.data as GridRow;
+          if (row.rowType === 'result') {
+            return { fontWeight: 'bold', backgroundColor: '#e8f5e9', textAlign: 'right' } as any;
+          } else if (row.rowType === 'parameter' && row.parameterDef?.type === ParameterType.NUMBER) {
+            return { textAlign: 'right' } as any;
           }
           return null;
         }
       });
     });
-  }
-
-  private getCellEditor(params: any): string {
-    const row = params.data as GridRow;
-    if (!row.parameterDef) return 'agTextCellEditor';
-
-    switch (row.parameterDef.type) {
-      case ParameterType.BOOLEAN:
-        return 'agCheckboxCellEditor';
-      case ParameterType.DROPDOWN:
-        return 'agSelectCellEditor';
-      case ParameterType.NUMBER:
-        return 'agNumberCellEditor';
-      default:
-        return 'agTextCellEditor';
-    }
-  }
-
-  private getCellEditorParams(params: any): any {
-    const row = params.data as GridRow;
-    if (!row.parameterDef) return {};
-
-    if (row.parameterDef.type === ParameterType.DROPDOWN) {
-      return {
-        values: row.parameterDef.dropdownOptions?.map(opt => opt.value) || []
-      };
-    } else if (row.parameterDef.type === ParameterType.NUMBER) {
-      return {
-        min: row.parameterDef.min,
-        max: row.parameterDef.max,
-        step: row.parameterDef.step
-      };
-    }
-    return {};
   }
 
   private valueSetter(params: ValueSetterParams): boolean {
@@ -191,10 +249,35 @@ export class SimulationGridComponent implements OnInit, OnDestroy {
     const paramValue = column.parameters.find(p => p.parameterId === row.parameterId);
     if (!paramValue) return false;
 
-    paramValue.value = params.newValue;
+    // Don't update if value is empty/null - keep the old value
+    if (params.newValue === null || params.newValue === undefined || params.newValue === '') {
+      return false;
+    }
+
+    // Convert Yes/No strings to boolean for boolean parameters
+    if (row.parameterDef?.type === ParameterType.BOOLEAN) {
+      paramValue.value = params.newValue === 'Yes';
+    } else if (row.parameterDef?.format === ParameterFormat.PERCENTAGE) {
+      // For percentage parameters, convert user input (4) to decimal (0.04) for storage
+      paramValue.value = typeof params.newValue === 'number' ? params.newValue / 100 : params.newValue;
+    } else {
+      paramValue.value = params.newValue;
+    }
+    
     this.dataChanged$.next();
     
     return true;
+  }
+
+  private getPrecisionFromStep(step?: number): number {
+    if (!step) return 0;
+    
+    // Calculate decimal places from step value
+    const stepStr = step.toString();
+    if (stepStr.includes('.')) {
+      return stepStr.split('.')[1].length;
+    }
+    return 0;
   }
 
   private buildRowData(): void {
@@ -222,29 +305,46 @@ export class SimulationGridComponent implements OnInit, OnDestroy {
         group
       });
 
-      // Add parameters in group
-      const params = this.parameterRegistry.getParametersByGroup(group);
-      params.forEach(param => {
-        this.rowData.push({
-          rowType: 'parameter',
-          parameterId: param.id,
-          label: param.label,
-          group,
-          parameterDef: param
+      // Add parameters in group only if expanded
+      const isExpanded = this.expandedGroups.get(group);
+      if (isExpanded) {
+        const params = this.parameterRegistry.getParametersByGroup(group);
+        params.forEach(param => {
+          this.rowData.push({
+            rowType: 'parameter',
+            parameterId: param.id,
+            label: param.label,
+            group,
+            parameterDef: param
+          });
         });
-      });
+      }
     });
+  }
+
+  toggleGroup(group: string): void {
+    const currentState = this.expandedGroups.get(group) || false;
+    this.expandedGroups.set(group, !currentState);
+    this.buildRowData();
+    if (this.gridApi) {
+      this.gridApi.setGridOption('rowData', this.rowData);
+    }
   }
 
   private formatValue(value: any, paramDef?: ParameterDefinition): string {
     if (value === undefined || value === null) return '';
     
     if (paramDef?.type === ParameterType.BOOLEAN) {
-      return value ? '☑' : '☐';
+      return value ? 'Yes' : 'No';
     } else if (paramDef?.type === ParameterType.DROPDOWN) {
       const option = paramDef.dropdownOptions?.find(opt => opt.value === value);
       return option?.label || String(value);
     } else if (paramDef?.type === ParameterType.NUMBER) {
+      if (paramDef.format === ParameterFormat.PERCENTAGE) {
+        return typeof value === 'number' ? `${(value * 100).toFixed(2)}%` : String(value);
+      } else if (paramDef.format === ParameterFormat.CURRENCY) {
+        return typeof value === 'number' ? this.formatCurrency(value) : String(value);
+      }
       return typeof value === 'number' ? value.toLocaleString() : String(value);
     }
     
@@ -332,16 +432,39 @@ export class SimulationGridComponent implements OnInit, OnDestroy {
     }
   }
 
+  copyColumn1ToAll(): void {
+    if (this.columns.length === 0) return;
+    
+    if (confirm('Copy all values from Scenario 1 to all other columns?')) {
+      const column1 = this.columns[0];
+      
+      // Copy column 1 parameters to all other columns
+      for (let i = 1; i < this.columns.length; i++) {
+        this.columns[i].parameters = column1.parameters.map(p => ({
+          parameterId: p.parameterId,
+          value: p.value
+        }));
+      }
+      
+      this.storageService.saveColumns(this.columns);
+      
+      if (this.gridApi) {
+        this.gridApi.refreshCells({ force: true });
+      }
+    }
+  }
+
   resetData(): void {
     if (confirm('Are you sure you want to reset all data to defaults?')) {
       this.storageService.clearColumns();
       this.results.clear();
+      this.columns = []; // Clear existing columns
       this.initializeColumns();
       this.setupColumnDefinitions();
       
       if (this.gridApi) {
         this.gridApi.setGridOption('columnDefs', this.columnDefs);
-        this.gridApi.refreshCells({ force: true });
+        this.gridApi.setGridOption('rowData', this.rowData);
       }
     }
   }

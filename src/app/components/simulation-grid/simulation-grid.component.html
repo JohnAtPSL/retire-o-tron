@@ -3,16 +3,20 @@
     <h2>Retirement Simulation Grid</h2>
     <div class="button-group">
       <button (click)="runSimulations()" class="btn btn-primary">Run Simulations</button>
+      <button (click)="copyColumn1ToAll()" class="btn btn-info">Copy Column 1 to All</button>
       <button (click)="addColumn()" class="btn btn-secondary">Add Column</button>
       <button (click)="resetData()" class="btn btn-danger">Reset Data</button>
     </div>
   </div>
 
   <ag-grid-angular
-    class="ag-theme-alpine"
+    class="simulation-grid"
     [columnDefs]="columnDefs"
     [rowData]="rowData"
     [defaultColDef]="defaultColDef"
+    [theme]="theme"
+    [rowHeight]="rowHeight"
+    [headerHeight]="32"
     [suppressMovableColumns]="true"
     [suppressDragLeaveHidesColumns]="true"
     [suppressCellFocus]="false"
