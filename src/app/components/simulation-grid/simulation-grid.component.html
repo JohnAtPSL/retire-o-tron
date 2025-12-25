@@ -1,0 +1,23 @@
+<div class="grid-container">
+  <div class="toolbar">
+    <h2>Retirement Simulation Grid</h2>
+    <div class="button-group">
+      <button (click)="runSimulations()" class="btn btn-primary">Run Simulations</button>
+      <button (click)="addColumn()" class="btn btn-secondary">Add Column</button>
+      <button (click)="resetData()" class="btn btn-danger">Reset Data</button>
+    </div>
+  </div>
+
+  <ag-grid-angular
+    class="ag-theme-alpine"
+    [columnDefs]="columnDefs"
+    [rowData]="rowData"
+    [defaultColDef]="defaultColDef"
+    [suppressMovableColumns]="true"
+    [suppressDragLeaveHidesColumns]="true"
+    [suppressCellFocus]="false"
+    [singleClickEdit]="true"
+    [stopEditingWhenCellsLoseFocus]="true"
+    (gridReady)="onGridReady($event)"
+  />
+</div>
