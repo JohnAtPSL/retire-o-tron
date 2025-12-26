@@ -37,6 +37,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy {
 
   columnDefs: ColDef[] = [];
   rowData: GridRow[] = [];
+  pinnedTopRowData: GridRow[] = [];
   defaultColDef: ColDef = {
     flex: 1,
     minWidth: 100,
@@ -283,17 +284,19 @@ export class SimulationGridComponent implements OnInit, OnDestroy {
   private buildRowData(): void {
     this.rowData = [];
 
-    // Add result rows at top
-    this.rowData.push({
-      rowType: 'result',
-      parameterId: 'result1',
-      label: 'Portfolio Value'
-    });
-    this.rowData.push({
-      rowType: 'result',
-      parameterId: 'result2',
-      label: 'Success Rate'
-    });
+    // Add result rows to pinned top section
+    this.pinnedTopRowData = [
+      {
+        rowType: 'result',
+        parameterId: 'result1',
+        label: 'Linear End Value'
+      },
+      {
+        rowType: 'result',
+        parameterId: 'result2',
+        label: 'Success Rate'
+      }
+    ];
 
     // Add parameter rows grouped
     const groups = this.parameterRegistry.getGroups();

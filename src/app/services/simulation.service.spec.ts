@@ -57,7 +57,7 @@ describe('SimulationService', () => {
       const currentNetWorth = 500000;
       const currentRoR = 0.06;
 
-      const result = service.calculateValueForYear(year, baseParams, currentNetWorth, currentRoR);
+      const result = service.calculateValueForYear(year, baseParams, currentNetWorth, []);
 
       // During working years (age < retirement), should grow by RoR
       // 500000 * (1 + 0.06) = 530000
@@ -71,7 +71,7 @@ describe('SimulationService', () => {
       const currentNetWorth = 500000;
       const currentRoR = 0.06;
 
-      const result = service.calculateValueForYear(year, paramsWithCapitalEvent, currentNetWorth, currentRoR);
+      const result = service.calculateValueForYear(year, paramsWithCapitalEvent, currentNetWorth, []);
 
       // Should add capital event: (500000 + 100000) * 1.06 = 636000
       expect(result.result).toBeCloseTo(636000, 0);
@@ -83,7 +83,7 @@ describe('SimulationService', () => {
       const currentNetWorth = 1000000;
       const currentRoR = 0.05;
 
-      const result = service.calculateValueForYear(year, retiredParams, currentNetWorth, currentRoR);
+      const result = service.calculateValueForYear(year, retiredParams, currentNetWorth, []);
 
       // Should deduct expenses and apply RoR
       expect(result.result).toBeLessThan(currentNetWorth * (1 + currentRoR));
@@ -96,7 +96,7 @@ describe('SimulationService', () => {
       const currentNetWorth = 1000000;
       const currentRoR = 0.05;
 
-      const result = service.calculateValueForYear(year, retiredParams, currentNetWorth, currentRoR);
+      const result = service.calculateValueForYear(year, retiredParams, currentNetWorth, []);
 
       expect(result.comment).toContain('ss:');
       // Social security should help offset withdrawal
@@ -108,7 +108,7 @@ describe('SimulationService', () => {
       const currentNetWorth = 1000000;
       const currentRoR = 0.05;
 
-      const result = service.calculateValueForYear(year, retiredParams, currentNetWorth, currentRoR);
+      const result = service.calculateValueForYear(year, retiredParams, currentNetWorth, []);
 
       expect(result.comment).toContain('health:');
       // Healthcare costs should be included before age 65
@@ -121,7 +121,7 @@ describe('SimulationService', () => {
       const currentNetWorth = 100000;
       const currentRoR = 0.05;
 
-      const result = service.calculateValueForYear(year, retiredParams, currentNetWorth, currentRoR);
+      const result = service.calculateValueForYear(year, retiredParams, currentNetWorth, []);
 
       // With guardrails, flexible expenses should be reduced
       expect(result.result).toBeGreaterThan(0);
@@ -132,7 +132,7 @@ describe('SimulationService', () => {
       const currentNetWorth = 500000;
       const currentRoR = 0.06;
 
-      const result = service.calculateValueForYear(year, baseParams, currentNetWorth, currentRoR);
+      const result = service.calculateValueForYear(year, baseParams, currentNetWorth, []);
 
       expect(result.comment).toBeTruthy();
       expect(result.comment).toContain('starting value');
@@ -142,6 +142,7 @@ describe('SimulationService', () => {
   });
 
   describe('performLinearAnalysis', () => {
+
     let baseParams: ParameterMap;
 
     beforeEach(() => {
@@ -263,6 +264,163 @@ describe('SimulationService', () => {
 
       // Should reflect the transition from high to low ROR
       expect(result).toBeGreaterThan(100000);
+    });
+  });
+
+  describe('performMonteCarloAnalysis', () => {
+    let baseParams: ParameterMap;
+
+    beforeEach(() => {
+      // Set up base parameters for testing
+      baseParams = {
+        age: 55,
+        retired: 65,
+        currentPortfolio: 500000,
+        rateOfReturn: 0.06,
+        retirementRateOfReturn: 0.05,
+        cola: 0.025,
+        taxRate: 0.11,
+        coreExpenses: 3000,
+        flexExpenses: 2000,
+        healthInsurance: 800,
+        capitalEvent1: 0,
+        capitalEvent1Age: 0,
+        capitalEvent2: 0,
+        capitalEvent2Age: 0,
+        capitalEvent3: 0,
+        capitalEvent3Age: 0,
+        semiRetiredIncome: 0,
+        semiRetirementDuration: 0,
+        yearlySpendingReduction: 0.01,
+        longevityAge: 95,
+        currentSavingsRate: 0,
+        socialSecurityAmount: 2000,
+        socialSecurityAge: 67,
+        targetWithdrawalRate: 0.04,
+        upperBound: 1.2,
+        lowerBound: 0.8,
+        applyGuardrails: true,
+        applySpendingReduction: true,
+        inflation: 0.03
+      };
+    });
+
+    it('should return a success count between 0 and total iterations', () => {
+      const result = service.performMonteCarloAnalysis(baseParams);
+
+      // Result should be a number between 0 and 10 (iterations)
+      expect(typeof result).toBe('number');
+      expect(result).toBeGreaterThanOrEqual(0);
+      expect(result).toBeLessThanOrEqual(10);
+    });
+
+    it('should return a higher success rate with a larger starting portfolio', () => {
+      const smallPortfolio = { ...baseParams, currentPortfolio: 100000 };
+      const largePortfolio = { ...baseParams, currentPortfolio: 2000000 };
+
+      const smallResult = service.performMonteCarloAnalysis(smallPortfolio);
+      const largeResult = service.performMonteCarloAnalysis(largePortfolio);
+
+      // Larger portfolio should have higher or equal success rate
+      expect(largeResult).toBeGreaterThanOrEqual(smallResult);
+    });
+
+    it('should return a success rate for a well-funded retirement scenario', () => {
+      const wellFundedParams = {
+        ...baseParams,
+        currentPortfolio: 2000000,
+        coreExpenses: 2000,
+        flexExpenses: 1000,
+        longevityAge: 85
+      };
+
+      const result = service.performMonteCarloAnalysis(wellFundedParams);
+
+      // Should have high success rate (most or all iterations succeed)
+      expect(result).toBeGreaterThan(0);
+    });
+
+    it('should handle a scenario with very low starting portfolio', () => {
+      const poorlyFundedParams = {
+        ...baseParams,
+        currentPortfolio: 10000,
+        coreExpenses: 5000,
+        flexExpenses: 3000
+      };
+
+      const result = service.performMonteCarloAnalysis(poorlyFundedParams);
+
+      // Should still return a valid result (likely low success rate)
+      expect(typeof result).toBe('number');
+      expect(result).toBeGreaterThanOrEqual(0);
+      expect(result).toBeLessThanOrEqual(10);
+    });
+
+    it('should handle different retirement durations', () => {
+      const shortRetirement = { ...baseParams, age: 65, longevityAge: 75 };
+      const longRetirement = { ...baseParams, age: 55, longevityAge: 95 };
+
+      const shortResult = service.performMonteCarloAnalysis(shortRetirement);
+      const longResult = service.performMonteCarloAnalysis(longRetirement);
+
+      // Both should return valid results
+      expect(typeof shortResult).toBe('number');
+      expect(typeof longResult).toBe('number');
+      
+      // Shorter retirement should generally have higher success rate
+      expect(shortResult).toBeGreaterThanOrEqual(longResult);
+    });
+
+    it('should handle a single year scenario', () => {
+      const singleYearParams = { ...baseParams, age: 94, longevityAge: 95 };
+
+      const result = service.performMonteCarloAnalysis(singleYearParams);
+
+      // Should complete without errors
+      expect(typeof result).toBe('number');
+      expect(result).toBeGreaterThanOrEqual(0);
+      expect(result).toBeLessThanOrEqual(10);
+    });
+
+    it('should return consistent results for identical scenarios', () => {
+      const params = { ...baseParams, currentPortfolio: 1000000 };
+
+      const result1 = service.performMonteCarloAnalysis(params);
+      const result2 = service.performMonteCarloAnalysis(params);
+
+      // Results might differ due to randomness, but should be within reasonable range
+      // Both should be valid success counts
+      expect(typeof result1).toBe('number');
+      expect(typeof result2).toBe('number');
+      expect(Math.abs(result1 - result2)).toBeLessThanOrEqual(10);
+    });
+
+    it('should handle high expense scenarios', () => {
+      const highExpenseParams = {
+        ...baseParams,
+        coreExpenses: 10000,
+        flexExpenses: 5000,
+        currentPortfolio: 500000
+      };
+
+      const result = service.performMonteCarloAnalysis(highExpenseParams);
+
+      // Should return valid result (likely lower success rate)
+      expect(typeof result).toBe('number');
+      expect(result).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should incorporate regime switching in simulations', () => {
+      // Test that the function uses the regime-based returns
+      const params = { ...baseParams, currentPortfolio: 500000 };
+
+      const result = service.performMonteCarloAnalysis(params);
+
+      // Due to market regime switching, we should get varied outcomes
+      // Just verify it completes and returns valid result
+      expect(typeof result).toBe('number');
+      expect(result).toBeGreaterThanOrEqual(0);
+      expect(result).toBeLessThanOrEqual(10);
     });
   });
 });

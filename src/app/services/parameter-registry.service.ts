@@ -12,7 +12,7 @@ export class ParameterRegistryService {
             label: 'Age',
             type: ParameterType.NUMBER,
             group: 'Basics',
-            defaultValue: 55,
+            defaultValue: 52,
             min: 18,
             max: 100,
             step: 1
@@ -22,10 +22,21 @@ export class ParameterRegistryService {
             label: 'Retirement Age',
             type: ParameterType.NUMBER,
             group: 'Basics',
-            defaultValue: 65,
+            defaultValue: 55,
             min: 18,
             max: 100,
             step: 1
+        },
+        {
+            id: 'currentPortfolio',
+            label: 'Current Portfolio',
+            type: ParameterType.NUMBER,
+            group: 'Finance',
+            format: ParameterFormat.CURRENCY,
+            defaultValue: 1500000,
+            min: 0,
+            max: 100000000,
+            step: 100
         },
         // Finance Group
         // {
@@ -40,16 +51,82 @@ export class ParameterRegistryService {
         //     { label: 'Both', value: 'both' }
         //   ]
         // },
+
         {
-            id: 'currentPortfolio',
-            label: 'Current Portfolio',
+            id: 'coreExpenses',
+            label: 'Core Expenses',
             type: ParameterType.NUMBER,
-            group: 'Finance',
+            group: 'Expenses',
             format: ParameterFormat.CURRENCY,
-            defaultValue: 500000,
+            defaultValue: 2500,
+            min: 0,
+            max: 50000,
+            step: 1000
+        },
+        {
+            id: 'flexExpenses',
+            label: 'Flex Expenses',
+            type: ParameterType.NUMBER,
+            group: 'Expenses',
+            format: ParameterFormat.CURRENCY,
+            defaultValue: 2000,
+            min: 0,
+            max: 500000,
+            step: 1000
+        },
+        {
+            id: 'healthInsurance',
+            label: 'Health Insurance',
+            type: ParameterType.NUMBER,
+            group: 'Expenses',
+            format: ParameterFormat.CURRENCY,
+            defaultValue: 500,
+            min: 0,
+            max: 100000,
+            step: 1000
+        },
+        {
+            id: 'capitalEvent1',
+            label: 'Capital Event 1',
+            type: ParameterType.NUMBER,
+            group: 'Capital Events',
+            format: ParameterFormat.CURRENCY,
+            defaultValue: 0,
             min: 0,
             max: 10000000,
             step: 1000
+        },
+        {
+            id: 'semiRetiredIncome',
+            label: 'Semi Retired Income',
+            type: ParameterType.NUMBER,
+            group: 'Semi Retirement',
+            format: ParameterFormat.CURRENCY,
+            defaultValue: 0,
+            min: 0,
+            max: 500000,
+            step: 1000
+        },
+          {
+            id: 'socialSecurityAmount',
+            label: 'Social Security Amount',
+            type: ParameterType.NUMBER,
+            group: 'Social Security',
+            format: ParameterFormat.CURRENCY,
+            defaultValue: 0,
+            min: 0,
+            max: 100000,
+            step: 100
+        },
+        {
+            id: 'socialSecurityAge',
+            label: 'Social Security Age',
+            type: ParameterType.NUMBER,
+            group: 'Social Security',
+            defaultValue: 70,
+            min: 62,
+            max: 70,
+            step: 1
         },
         {
             id: 'rateOfReturn',
@@ -62,17 +139,6 @@ export class ParameterRegistryService {
             max: 0.20,
             step: 0.001
         },
-         {
-            id: 'inflation',
-            label: 'Inflation',
-            type: ParameterType.NUMBER,
-            group: 'Rates',
-            format: ParameterFormat.PERCENTAGE,
-            defaultValue: 0.035,
-            min: 0,
-            max: 0.20,
-            step: 0.0001
-        },
         {
             id: 'retirementRateOfReturn',
             label: 'Retirement Rate of Return',
@@ -83,6 +149,17 @@ export class ParameterRegistryService {
             min: 0,
             max: 0.20,
             step: 0.001
+        }, 
+        {
+            id: 'inflation',
+            label: 'Inflation',
+            type: ParameterType.NUMBER,
+            group: 'Rates',
+            format: ParameterFormat.PERCENTAGE,
+            defaultValue: 0.035,
+            min: 0,
+            max: 0.20,
+            step: 0.0001
         },
         {
             id: 'cola',
@@ -105,50 +182,6 @@ export class ParameterRegistryService {
             min: 0,
             max: 0.60,
             step: 0.0001
-        },
-        {
-            id: 'coreExpenses',
-            label: 'Core Expenses',
-            type: ParameterType.NUMBER,
-            group: 'Expenses',
-            format: ParameterFormat.CURRENCY,
-            defaultValue: 50000,
-            min: 0,
-            max: 500000,
-            step: 1000
-        },
-        {
-            id: 'flexExpenses',
-            label: 'Flex Expenses',
-            type: ParameterType.NUMBER,
-            group: 'Expenses',
-            format: ParameterFormat.CURRENCY,
-            defaultValue: 20000,
-            min: 0,
-            max: 500000,
-            step: 1000
-        },
-        {
-            id: 'healthInsurance',
-            label: 'Health Insurance',
-            type: ParameterType.NUMBER,
-            group: 'Expenses',
-            format: ParameterFormat.CURRENCY,
-            defaultValue: 15000,
-            min: 0,
-            max: 100000,
-            step: 1000
-        },
-        {
-            id: 'capitalEvent1',
-            label: 'Capital Event 1',
-            type: ParameterType.NUMBER,
-            group: 'Capital Events',
-            format: ParameterFormat.CURRENCY,
-            defaultValue: 0,
-            min: 0,
-            max: 10000000,
-            step: 1000
         },
         {
             id: 'capitalEvent1Age',
@@ -201,18 +234,6 @@ export class ParameterRegistryService {
             min: 18,
             max: 100,
             step: 1
-        }
-        ,
-        {
-            id: 'semiRetiredIncome',
-            label: 'Semi Retired Income',
-            type: ParameterType.NUMBER,
-            group: 'Semi Retirement',
-            format: ParameterFormat.CURRENCY,
-            defaultValue: 0,
-            min: 0,
-            max: 500000,
-            step: 1000
         },
         {
             id: 'semiRetirementDuration',
@@ -254,27 +275,6 @@ export class ParameterRegistryService {
             defaultValue: 10000,
             min: 0,
             max: 10000000,
-            step: 1
-        },
-        {
-            id: 'socialSecurityAmount',
-            label: 'Social Security Amount',
-            type: ParameterType.NUMBER,
-            group: 'Social Security',
-            format: ParameterFormat.CURRENCY,
-            defaultValue: 0,
-            min: 0,
-            max: 100000,
-            step: 100
-        },
-        {
-            id: 'socialSecurityAge',
-            label: 'Social Security Age',
-            type: ParameterType.NUMBER,
-            group: 'Social Security',
-            defaultValue: 67,
-            min: 62,
-            max: 70,
             step: 1
         },
         {
