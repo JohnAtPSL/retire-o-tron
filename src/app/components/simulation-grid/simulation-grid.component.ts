@@ -1,8 +1,9 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AgGridAngular } from 'ag-grid-angular';
 import { ColDef, GridApi, GridReadyEvent, ValueSetterParams, ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community';
 import { Subject, forkJoin, debounceTime, takeUntil } from 'rxjs';
+import { Chart, ChartConfiguration, registerables } from 'chart.js';
 
 import { ParameterRegistryService } from '../../services/parameter-registry.service';
 import { SimulationService } from '../../services/simulation.service';
@@ -13,6 +14,9 @@ import { SimulationResult } from '../../models/simulation-result.model';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
+
+// Register Chart.js components
+Chart.register(...registerables);
 
 interface GridRow {
   rowType: 'result' | 'group' | 'parameter';
@@ -30,7 +34,10 @@ interface GridRow {
   templateUrl: './simulation-grid.component.html',
   styleUrls: ['./simulation-grid.component.scss']
 })
-export class SimulationGridComponent implements OnInit, OnDestroy {
+export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit {
+  @ViewChild('portfolioChart') portfolioChartCanvas?: ElementRef<HTMLCanvasElement>;
+  private chart?: Chart;
+  
   private gridApi!: GridApi;
   private destroy$ = new Subject<void>();
   private dataChanged$ = new Subject<void>();
@@ -51,6 +58,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy {
   columns: SimulationColumn[] = [];
   results: Map<string, SimulationResult> = new Map();
   expandedGroups: Map<string, boolean> = new Map();
+  detailViewColumnId: string | null = null;
   
   theme = themeQuartz;
 
@@ -68,14 +76,13 @@ export class SimulationGridComponent implements OnInit, OnDestroy {
     this.setupAutoSave();
   }
 
+  ngAfterViewInit(): void {
+    this.renderChart();
+  }
+
   private initializeExpandedGroups(): void {
     const groups = this.parameterRegistry.getGroups();
     groups.forEach(group => this.expandedGroups.set(group, true));
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 
   private initializeColumns(): void {
@@ -135,8 +142,14 @@ export class SimulationGridComponent implements OnInit, OnDestroy {
 
     // Add column for each scenario
     this.columns.forEach(col => {
+      const isDetailView = this.detailViewColumnId === col.id;
+      const shouldHide = this.detailViewColumnId && this.detailViewColumnId !== col.id;
+      const detailButtonIcon = isDetailView ? '✕' : '🔍';
+      
       this.columnDefs.push({
-        headerName: col.name,
+        headerName: `${col.name} ${detailButtonIcon}`,
+        hide: shouldHide || false,
+        headerClass: isDetailView ? 'header-detail-active' : 'header-with-detail-btn',
         field: col.id,
         editable: (params) => params.data.rowType === 'parameter',
         cellEditorSelector: (params) => {
@@ -334,6 +347,38 @@ export class SimulationGridComponent implements OnInit, OnDestroy {
     }
   }
 
+  toggleDetailView(columnId: string): void {
+    if (this.detailViewColumnId === columnId) {
+      // Close detail view
+      this.detailViewColumnId = null;
+      this.destroyChart();
+    } else {
+      // Open detail view for this column
+      this.detailViewColumnId = columnId;
+    }
+    
+    // Rebuild column definitions to show/hide columns
+    this.setupColumnDefinitions();
+    
+    if (this.gridApi) {
+      this.gridApi.setGridOption('columnDefs', this.columnDefs);
+      this.gridApi.refreshCells({ force: true });
+    }
+    
+    // Render chart after view updates
+    setTimeout(() => this.renderChart(), 100);
+  }
+
+  getSelectedColumnDetails(): SimulationColumn | null {
+    if (!this.detailViewColumnId) return null;
+    return this.columns.find(c => c.id === this.detailViewColumnId) || null;
+  }
+
+  getDetailViewResult(): SimulationResult | undefined {
+    if (!this.detailViewColumnId) return undefined;
+    return this.results.get(this.detailViewColumnId);
+  }
+
   private formatValue(value: any, paramDef?: ParameterDefinition): string {
     if (value === undefined || value === null) return '';
     
@@ -354,7 +399,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy {
     return String(value);
   }
 
-  private formatCurrency(value: number): string {
+  formatCurrency(value: number): string {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -363,7 +408,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy {
     }).format(value);
   }
 
-  private formatPercentage(value: number): string {
+  formatPercentage(value: number): string {
     return `${value.toFixed(1)}%`;
   }
 
@@ -381,6 +426,18 @@ export class SimulationGridComponent implements OnInit, OnDestroy {
   onGridReady(params: GridReadyEvent): void {
     this.gridApi = params.api;
     this.gridApi.sizeColumnsToFit();
+  }
+
+  onColumnHeaderClicked(event: any): void {
+    console.log('Column header clicked:', event); // Debug log
+    
+    const colId = event.column?.colId || event.column?.colDef?.field;
+    console.log('Column ID:', colId); // Debug log
+    
+    // Only toggle detail view for scenario columns (not the label column)
+    if (colId && colId.startsWith('col')) {
+      this.toggleDetailView(colId);
+    }
   }
 
   runSimulations(): void {
@@ -402,6 +459,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy {
       next: (results) => {
         results.forEach(result => {
           this.results.set(result.columnId, result);
+          console.log(this.results);
         });
         this.gridApi?.refreshCells({ force: true });
       },
@@ -470,5 +528,97 @@ export class SimulationGridComponent implements OnInit, OnDestroy {
         this.gridApi.setGridOption('rowData', this.rowData);
       }
     }
+  }
+
+  getParameterLabel(parameterId: string): string {
+    const param = this.parameterRegistry.getParameters().find(p => p.id === parameterId);
+    return param?.label || parameterId;
+  }
+
+  formatParameterValue(parameterId: string, value: any): string {
+    const param = this.parameterRegistry.getParameters().find(p => p.id === parameterId);
+    if (!param) return String(value);
+    return this.formatValue(value, param);
+  }
+
+  private renderChart(): void {
+    if (!this.portfolioChartCanvas || !this.detailViewColumnId) {
+      return;
+    }
+    
+    this.destroyChart();
+    
+    const result = this.getDetailViewResult();
+    if (!result?.linearResult || result.linearResult.length === 0) {
+      return;
+    }
+    
+    const ctx = this.portfolioChartCanvas.nativeElement.getContext('2d');
+    if (!ctx) return;
+    
+    const config: ChartConfiguration = {
+      type: 'bar',
+      data: {
+        labels: result.linearResult.map(d => d.year.toString()),
+        datasets: [{
+          label: 'Portfolio Value',
+          data: result.linearResult.map(d => d.value),
+          backgroundColor: 'rgba(25, 118, 210, 0.6)',
+          borderColor: 'rgba(25, 118, 210, 1)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          title: {
+            display: true,
+            text: 'Portfolio Value Over Time',
+            font: { size: 16 }
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const value = context.parsed.y;
+                return value !== null ? `Value: ${this.formatCurrency(value)}` : 'N/A';
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: (value) => this.formatCurrency(value as number)
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: 'Year'
+            }
+          }
+        }
+      }
+    };
+    
+    this.chart = new Chart(ctx, config);
+  }
+
+  private destroyChart(): void {
+    if (this.chart) {
+      this.chart.destroy();
+      this.chart = undefined;
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.destroyChart();
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

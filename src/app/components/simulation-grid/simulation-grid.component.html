@@ -1,4 +1,4 @@
-<div class="grid-container">
+<div class="grid-container" [class.detail-view-active]="detailViewColumnId">
   <div class="toolbar">
     <h2>Retirement Simulation Grid</h2>
     <div class="button-group">
@@ -9,20 +9,79 @@
     </div>
   </div>
 
-  <ag-grid-angular
-    class="simulation-grid"
-    [columnDefs]="columnDefs"
-    [rowData]="rowData"
-    [pinnedTopRowData]="pinnedTopRowData"
-    [defaultColDef]="defaultColDef"
-    [theme]="theme"
-    [rowHeight]="rowHeight"
-    [headerHeight]="32"
-    [suppressMovableColumns]="true"
-    [suppressDragLeaveHidesColumns]="true"
-    [suppressCellFocus]="false"
-    [singleClickEdit]="true"
-    [stopEditingWhenCellsLoseFocus]="true"
-    (gridReady)="onGridReady($event)"
-  />
+  <div class="content-area">
+    <ag-grid-angular
+      class="simulation-grid"
+      [class.grid-with-detail]="detailViewColumnId"
+      [columnDefs]="columnDefs"
+      [rowData]="rowData"
+      [pinnedTopRowData]="pinnedTopRowData"
+      [defaultColDef]="defaultColDef"
+      [theme]="theme"
+      [rowHeight]="rowHeight"
+      (gridReady)="onGridReady($event)"
+      (columnHeaderClicked)="onColumnHeaderClicked($event)"
+      [suppressCellFocus]="true"
+      [suppressRowClickSelection]="true"
+    />
+
+    <div *ngIf="detailViewColumnId" class="detail-panel">
+      <div class="detail-header">
+        <h3>{{ getSelectedColumnDetails()?.name }} - Details</h3>
+        <button class="close-btn" (click)="toggleDetailView(detailViewColumnId)" title="Close detail view">✕</button>
+      </div>
+      <div class="detail-content">
+        <div class="detail-section">
+          <h4>Portfolio Value Over Time</h4>
+          <div class="chart-container">
+            <canvas #portfolioChart></canvas>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h4>Simulation Results</h4>
+          <div *ngIf="getDetailViewResult() as result" class="results-grid">
+            <div class="result-item">
+              <span class="result-label">Final Portfolio Value:</span>
+              <span class="result-value">{{ formatCurrency(result.result1) }}</span>
+            </div>
+            <div class="result-item">
+              <span class="result-label">Success Rate:</span>
+              <span class="result-value">{{ formatPercentage(result.result2) }}</span>
+            </div>
+            <div class="result-item" *ngIf="result.isCalculating">
+              <span class="calculating">Calculating...</span>
+            </div>
+            <div class="result-item" *ngIf="result.error">
+              <span class="error">{{ result.error }}</span>
+            </div>
+          </div>
+          <div *ngIf="!getDetailViewResult()" class="no-results">
+            <p>Run simulations to see results here.</p>
+          </div>
+        </div>
+
+
+         <div class="detail-section">
+          <h4>Linear Analysis</h4>
+         
+        </div>
+
+         <div class="detail-section">
+          <h4>Monte Carlo Analysis</h4>
+         
+        </div>
+
+        <div class="detail-section">
+          <h4>Parameters Summary</h4>
+          <div class="parameters-list">
+            <div *ngFor="let param of getSelectedColumnDetails()?.parameters" class="param-item">
+              <span class="param-label">{{ getParameterLabel(param.parameterId) }}:</span>
+              <span class="param-value">{{ formatParameterValue(param.parameterId, param.value) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>

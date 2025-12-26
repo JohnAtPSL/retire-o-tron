@@ -42,7 +42,7 @@ export class SimulationService {
     runSimulation(column: SimulationColumn): Observable<SimulationResult> {
         const params = this.mapParameters(column);
 
-        const portfolioValue = this.performLinearAnalysis(params);
+        const laResult = this.performLinearAnalysis(params);
 
         this.CFG.initialRegime = Math.random() < 0.5 ? 'bull' : 'bear';
 
@@ -51,8 +51,9 @@ export class SimulationService {
 
         const result: SimulationResult = {
             columnId: column.id,
-            result1: portfolioValue,
-            result2: success
+            result1: laResult.pop()?.value as number,
+            result2: success,
+            linearResult: laResult
         };
 
         // Simulate 1-2 second delay
@@ -72,7 +73,7 @@ export class SimulationService {
     performMonteCarloAnalysis(params: ParameterMap): number {
 
         let result = 0.0;
-        const iterations = 1000;
+        const iterations = 4000;
         const results = [];
 
         const age = params.age;
@@ -108,6 +109,9 @@ export class SimulationService {
 
     performLinearAnalysis(params: ParameterMap) {
 
+
+        const result: {year: number, value: number}[] = [];
+
         const age = params.age;
         const netWorth = params.currentPortfolio;
         const targetAge = params.longevityAge;
@@ -121,11 +125,14 @@ export class SimulationService {
 
         let workingNetWorth = netWorth;
         for (let y = 0; y < retirementDuration + 1; y++) {
-            const result = this.calculateValueForYear(y, params, workingNetWorth, path);
-            workingNetWorth = result.result;
+            const answer = this.calculateValueForYear(y, params, workingNetWorth, path);
+            
+            result.push({year: y, value: answer.result});
+            
+            workingNetWorth = answer.result;
         }
 
-        return workingNetWorth;
+        return result;
 
     }
 
@@ -143,10 +150,14 @@ export class SimulationService {
         }
         
         const startValue = currentNetWorth;
+
         const capEventOneAge = params.capitalEvent1Age;
         const capEventOneAmt = params.capitalEvent1;
         const capEventTwoAge = params.capitalEvent2Age;
         const capEventTwoAmt = params.capitalEvent2;
+        const capEventThreeAge = params.capitalEvent3Age
+        const capEventThreeAmt = params.capitalEvent3;
+
         const currentSavings = params.currentSavingsRate;
         
         const semiRetiredDuration = params.semiRetirementDuration;
@@ -171,7 +182,9 @@ export class SimulationService {
         // CAPITAL EVENTS
         if (year + age == capEventOneAge) currentNetWorth += (capEventOneAmt * (1 + inflation) ** year);
         if (year + age == capEventTwoAge) currentNetWorth += (capEventTwoAmt * (1 + inflation) ** year);
-
+        if (year + age == capEventThreeAge) currentNetWorth += (capEventThreeAmt * (1 + inflation) ** year);
+        
+        
         // PRE-RETIREMENT SAVINGS
         if (year + age < retirementAge) currentNetWorth += (currentSavings * (1 + inflation) ** year);
 
@@ -193,12 +206,9 @@ export class SimulationService {
 
             if(path.length > 0) {
 
-           
             if (path[year] < -.01) {
                 flexExpenses *= .75;
-            }
-
-            if (((flexExpenses + coreExpenses) / currentNetWorth) > widthdrawalTarget * upperBound) {
+            } else if (((flexExpenses + coreExpenses) / currentNetWorth) > widthdrawalTarget * upperBound) {
 
                 flexExpenses *= .8;
 

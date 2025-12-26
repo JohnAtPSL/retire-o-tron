@@ -4,4 +4,5 @@ export interface SimulationResult {
   result2: number;
   isCalculating?: boolean;
   error?: string;
+  linearResult?: {year: number, value: number}[]
 }
