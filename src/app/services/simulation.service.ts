@@ -44,6 +44,8 @@ export class SimulationService {
 
         const portfolioValue = this.performLinearAnalysis(params);
 
+        this.CFG.initialRegime = Math.random() < 0.5 ? 'bull' : 'bear';
+
         console.log(`analysis for ${column.name}`);
         const success = this.performMonteCarloAnalysis(params);
 
@@ -189,6 +191,9 @@ export class SimulationService {
             flexExpenses *= (1 - yearlyReduction) ** (year - (retirementAge - age)) * (1 + inflation) ** year;
             coreExpenses *= (1 + inflation) ** year;
 
+            if(path.length > 0) {
+
+           
             if (path[year] < -.01) {
                 flexExpenses *= .75;
             }
@@ -200,21 +205,26 @@ export class SimulationService {
             } else if (((flexExpenses + coreExpenses) / currentNetWorth) < widthdrawalTarget * lowerBound) {
 
                 flexExpenses *= 1.10;
-            }
 
-            expenses = coreExpenses + flexExpenses;
-
+            } 
         }
+
+        } 
+        
+        expenses = coreExpenses + flexExpenses;
 
         const widthdrawal = (ssPayment - healthcare - expenses) * (1 + taxRate);
 
         const c2 = `${year + age}: ${widthdrawal} from ${currentNetWorth} with ror: ${ror} -> ${currentNetWorth * (1+ror)}`;
         
         currentNetWorth += widthdrawal;
-
-        const comment = `starting value: \$${Math.round(startValue)} \nwidthdrawal: ${widthdrawal}\nhealth: ${healthcare}\n ss: ${ssPayment}\nexpenses: ${expenses}\nending value: ${currentNetWorth}`;
-
         let result = currentNetWorth * (1 + ror);
+        const comment = `for year ${year} at ${age}: starting value: \$${Math.round(startValue)} widthdrawal: ${widthdrawal}health: ${healthcare} ss: ${ssPayment}expenses: ${expenses}ending value: ${currentNetWorth}`;
+
+        if(path.length == 0) {
+            console.log(comment);
+        }
+        
         return { result: result, comment: comment };
 
     }

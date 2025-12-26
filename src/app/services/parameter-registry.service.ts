@@ -92,7 +92,7 @@ export class ParameterRegistryService {
             group: 'Capital Events',
             format: ParameterFormat.CURRENCY,
             defaultValue: 0,
-            min: 0,
+            min: -10000000,
             max: 10000000,
             step: 1000
         },
@@ -200,7 +200,7 @@ export class ParameterRegistryService {
             group: 'Capital Events',
             format: ParameterFormat.CURRENCY,
             defaultValue: 0,
-            min: 0,
+            min: -10000000,
             max: 10000000,
             step: 1000
         },
@@ -221,7 +221,7 @@ export class ParameterRegistryService {
             group: 'Capital Events',
             format: ParameterFormat.CURRENCY,
             defaultValue: 0,
-            min: 0,
+            min: -10000000,
             max: 10000000,
             step: 1000
         },

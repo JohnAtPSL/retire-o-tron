@@ -13,6 +13,7 @@ describe('SimulationService', () => {
   it('should be created', () => {
     expect(service).toBeTruthy();
   });
+  
 
   describe('calculateValueForYear', () => {
     let baseParams: ParameterMap;
