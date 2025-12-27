@@ -21,7 +21,8 @@
       [rowHeight]="rowHeight"
       (gridReady)="onGridReady($event)"
       (columnHeaderClicked)="onColumnHeaderClicked($event)"
-      [suppressCellFocus]="true"
+      [singleClickEdit]="true"
+      [stopEditingWhenCellsLoseFocus]="true"
       [suppressRowClickSelection]="true"
     />
 
@@ -30,15 +31,8 @@
         <h3>{{ getSelectedColumnDetails()?.name }} - Details</h3>
         <button class="close-btn" (click)="toggleDetailView(detailViewColumnId)" title="Close detail view">✕</button>
       </div>
-      <div class="detail-content">
-        <div class="detail-section">
-          <h4>Portfolio Value Over Time</h4>
-          <div class="chart-container">
-            <canvas #portfolioChart></canvas>
-          </div>
-        </div>
 
-        <div class="detail-section">
+  <div class="detail-section">
           <h4>Simulation Results</h4>
           <div *ngIf="getDetailViewResult() as result" class="results-grid">
             <div class="result-item">
@@ -62,9 +56,24 @@
         </div>
 
 
+
          <div class="detail-section">
           <h4>Linear Analysis</h4>
          
+      <div class="detail-content">
+        <div class="detail-section">
+          <h4>Portfolio Value Over Time</h4>
+          <div class="chart-container">
+            <canvas #portfolioChart></canvas>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h4>Annual Expenses Breakdown</h4>
+          <div class="chart-container">
+            <canvas #expensesChart></canvas>
+          </div>
+        </div>
         </div>
 
          <div class="detail-section">

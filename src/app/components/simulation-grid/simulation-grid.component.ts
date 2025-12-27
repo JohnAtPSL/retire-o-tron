@@ -36,7 +36,9 @@ interface GridRow {
 })
 export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('portfolioChart') portfolioChartCanvas?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('expensesChart') expensesChartCanvas?: ElementRef<HTMLCanvasElement>;
   private chart?: Chart;
+  private expensesChart?: Chart;
   
   private gridApi!: GridApi;
   private destroy$ = new Subject<void>();
@@ -78,6 +80,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
 
   ngAfterViewInit(): void {
     this.renderChart();
+    this.renderExpensesChart();
   }
 
   private initializeExpandedGroups(): void {
@@ -352,6 +355,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
       // Close detail view
       this.detailViewColumnId = null;
       this.destroyChart();
+      this.destroyExpensesChart();
     } else {
       // Open detail view for this column
       this.detailViewColumnId = columnId;
@@ -365,8 +369,11 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
       this.gridApi.refreshCells({ force: true });
     }
     
-    // Render chart after view updates
-    setTimeout(() => this.renderChart(), 100);
+    // Render charts after view updates
+    setTimeout(() => {
+      this.renderChart();
+      this.renderExpensesChart();
+    }, 100);
   }
 
   getSelectedColumnDetails(): SimulationColumn | null {
@@ -462,6 +469,14 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
           console.log(this.results);
         });
         this.gridApi?.refreshCells({ force: true });
+        
+        // Update charts if detail view is open
+        if (this.detailViewColumnId) {
+          setTimeout(() => {
+            this.renderChart();
+            this.renderExpensesChart();
+          }, 100);
+        }
       },
       error: (error) => {
         console.error('Simulation error:', error);
@@ -560,46 +575,74 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
       type: 'bar',
       data: {
         labels: result.linearResult.map(d => d.year.toString()),
-        datasets: [{
-          label: 'Portfolio Value',
-          data: result.linearResult.map(d => d.value),
-          backgroundColor: 'rgba(25, 118, 210, 0.6)',
-          borderColor: 'rgba(25, 118, 210, 1)',
-          borderWidth: 1
-        }]
+        datasets: [
+          {
+            label: 'Starting Value',
+            data: result.linearResult.map(d => d.startValue),
+            backgroundColor: 'rgba(76, 175, 80, 0.7)',
+            borderColor: 'rgba(76, 175, 80, 1)',
+            borderWidth: 1
+          },
+          {
+            label: 'Growth',
+            data: result.linearResult.map(d => d.growth),
+            backgroundColor: 'rgba(25, 118, 210, 0.7)',
+            borderColor: 'rgba(25, 118, 210, 1)',
+            borderWidth: 1
+          },
+          {
+            label: 'Social Security',
+            data: result.linearResult.map(d => d.ssPayment),
+            backgroundColor: 'rgba(255, 152, 0, 0.7)',
+            borderColor: 'rgba(255, 152, 0, 1)',
+            borderWidth: 1
+          },
+          {
+            label: 'New Savings',
+            data: result.linearResult.map(d => d.newSavings),
+            backgroundColor: 'rgba(156, 39, 176, 0.7)',
+            borderColor: 'rgba(156, 39, 176, 1)',
+            borderWidth: 1
+          }
+        ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
           legend: {
-            display: false
+            display: true,
+            position: 'top'
           },
           title: {
             display: true,
-            text: 'Portfolio Value Over Time',
+            text: 'Portfolio Value Breakdown by Year',
             font: { size: 16 }
           },
           tooltip: {
+            mode: 'index',
+            intersect: false,
             callbacks: {
               label: (context) => {
                 const value = context.parsed.y;
-                return value !== null ? `Value: ${this.formatCurrency(value)}` : 'N/A';
+                return value !== null ? `${context.dataset.label}: ${this.formatCurrency(value)}` : 'N/A';
               }
             }
           }
         },
         scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: (value) => this.formatCurrency(value as number)
-            }
-          },
           x: {
+            stacked: true,
             title: {
               display: true,
               text: 'Year'
+            }
+          },
+          y: {
+            stacked: true,
+            beginAtZero: true,
+            ticks: {
+              callback: (value) => this.formatCurrency(value as number)
             }
           }
         }
@@ -609,6 +652,99 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     this.chart = new Chart(ctx, config);
   }
 
+  private renderExpensesChart(): void {
+    if (!this.expensesChartCanvas || !this.detailViewColumnId) {
+      return;
+    }
+    
+    this.destroyExpensesChart();
+    
+    const result = this.getDetailViewResult();
+    if (!result?.linearResult || result.linearResult.length === 0) {
+      return;
+    }
+    
+    const ctx = this.expensesChartCanvas.nativeElement.getContext('2d');
+    if (!ctx) return;
+    
+    const config: ChartConfiguration = {
+      type: 'bar',
+      data: {
+        labels: result.linearResult.map(d => d.year.toString()),
+        datasets: [
+          {
+            label: 'Core Expenses',
+            data: result.linearResult.map(d => d.coreExpense),
+            backgroundColor: 'rgba(244, 67, 54, 0.7)',
+            borderColor: 'rgba(244, 67, 54, 1)',
+            borderWidth: 1
+          },
+          {
+            label: 'Flexible Expenses',
+            data: result.linearResult.map(d => d.flexExpense),
+            backgroundColor: 'rgba(255, 193, 7, 0.7)',
+            borderColor: 'rgba(255, 193, 7, 1)',
+            borderWidth: 1
+          },
+          {
+            label: 'Healthcare',
+            data: result.linearResult.map(d => d.healthCare),
+            backgroundColor: 'rgba(33, 150, 243, 0.7)',
+            borderColor: 'rgba(33, 150, 243, 1)',
+            borderWidth: 1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top'
+          },
+          title: {
+            display: true,
+            text: 'Annual Expenses Breakdown',
+            font: { size: 16 }
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            callbacks: {
+              label: (context) => {
+                const value = context.parsed.y;
+                return value !== null ? `${context.dataset.label}: ${this.formatCurrency(value)}` : 'N/A';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            stacked: true,
+            title: {
+              display: true,
+              text: 'Year'
+            }
+          },
+          y: {
+            stacked: true,
+            beginAtZero: true,
+            ticks: {
+              callback: (value) => this.formatCurrency(value as number)
+            },
+            title: {
+              display: true,
+              text: 'Annual Expenses'
+            }
+          }
+        }
+      }
+    };
+    
+    this.expensesChart = new Chart(ctx, config);
+  }
+
   private destroyChart(): void {
     if (this.chart) {
       this.chart.destroy();
@@ -616,8 +752,16 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     }
   }
 
+  private destroyExpensesChart(): void {
+    if (this.expensesChart) {
+      this.expensesChart.destroy();
+      this.expensesChart = undefined;
+    }
+  }
+
   ngOnDestroy(): void {
     this.destroyChart();
+    this.destroyExpensesChart();
     this.destroy$.next();
     this.destroy$.complete();
   }

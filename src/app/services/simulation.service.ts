@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable, of, delay } from 'rxjs';
 import { SimulationColumn } from '../models/simulation-column.model';
-import { SimulationResult } from '../models/simulation-result.model';
+import { MonteCarloResult, SimulationResult } from '../models/simulation-result.model';
 import { ParameterMap } from '../models/parameter.model';
 
 @Injectable({
@@ -22,7 +22,7 @@ export class SimulationService {
     private readonly CFG = {
         initialRegime: "bull",
         // Regime model parameters (example values; adjust)
-        bull: { mu: 0.09, sigma: 0.15 },
+        bull: { mu: 0.075, sigma: 0.15 },
         bear: { mu: 0.01, sigma: 0.22 },
 
         // Markov transition probabilities
@@ -47,17 +47,36 @@ export class SimulationService {
         this.CFG.initialRegime = Math.random() < 0.5 ? 'bull' : 'bear';
 
         console.log(`analysis for ${column.name}`);
-        const success = this.performMonteCarloAnalysis(params);
+        const mcResult = this.performMonteCarloAnalysis(params);
+
+        console.log(mcResult);
 
         const result: SimulationResult = {
             columnId: column.id,
             result1: laResult.pop()?.value as number,
-            result2: success,
-            linearResult: laResult
+            result2: mcResult.success,
+            linearResult: laResult,
+            mcResult: mcResult,
+            failYears: this.binFailYears(params.retired, params.longevityAge, mcResult)
         };
 
         // Simulate 1-2 second delay
         return of(result);
+    }
+
+    binFailYears(retirementTarget: number, longevityAge: number, mcResults: MonteCarloResult): number[] {
+
+        const duration = longevityAge - retirementTarget;
+        const result = new Array(duration).fill(0);
+        
+        mcResults.details.forEach(r => {
+            if(r.failYear != -1) {
+                result[r.failYear] = result[r.failYear] + 1;
+            }
+        });
+
+        return result;
+
     }
 
     /**
@@ -70,11 +89,11 @@ export class SimulationService {
     }
 
 
-    performMonteCarloAnalysis(params: ParameterMap): number {
+    performMonteCarloAnalysis(params: ParameterMap): MonteCarloResult {
 
         let result = 0.0;
-        const iterations = 4000;
-        const results = [];
+        const iterations = 2500;
+        const results: {netWorth: number, failYear: number}[] = [];
 
         const age = params.age;
         const netWorth = params.currentPortfolio;
@@ -86,31 +105,37 @@ export class SimulationService {
 
         let fail = 0;
 
-        for (let i = 0; i < iterations; i++) {
 
+        for (let i = 0; i < iterations; i++) {
+            let failYear = -1;
             this.CFG.initialRegime = 'bull';
             const path = this.generateRegimeSwitchingReturns(retirementDuration);
             let netWorth = mcStartingValue;
             for (let y = 0; y < retirementDuration; y++) {
 
                 netWorth = this.calculateValueForYear(y, params, netWorth, path).result;
-                
+                if (netWorth < 0 && failYear < 0) failYear = y;
+
             }
 
-            if (netWorth < 0) fail++;
-            results.push(netWorth);
+            if (netWorth < 0) {
+
+                fail++;
+
+            }
+            results.push({ netWorth: netWorth, failYear: failYear });
 
         }
-        result = (iterations-fail)/iterations;
+        result = (iterations - fail) / iterations;
 
-        return result * 100;
+        return { success: result * 100, details: results };
 
     }
 
     performLinearAnalysis(params: ParameterMap) {
 
 
-        const result: {year: number, value: number}[] = [];
+        const result: { year: number, value: number, growth: number, startValue: number, ssPayment: number, newSavings: number, coreExpense: number, flexExpense: number, healthCare: number }[] = [];
 
         const age = params.age;
         const netWorth = params.currentPortfolio;
@@ -126,9 +151,19 @@ export class SimulationService {
         let workingNetWorth = netWorth;
         for (let y = 0; y < retirementDuration + 1; y++) {
             const answer = this.calculateValueForYear(y, params, workingNetWorth, path);
-            
-            result.push({year: y, value: answer.result});
-            
+
+            result.push({
+                year: y + age,
+                value: answer.result,
+                growth: answer.growth,
+                startValue: answer.startValue,
+                ssPayment: answer.ssPayment,
+                newSavings: answer.newSavings,
+                coreExpense: answer.coreExpense,
+                flexExpense: answer.flexExpnse,
+                healthCare: answer.healthCare
+            });
+
             workingNetWorth = answer.result;
         }
 
@@ -136,19 +171,28 @@ export class SimulationService {
 
     }
 
-    calculateValueForYear(year: number, params: ParameterMap, currentNetWorth: number, path: number[]): 
-        { result: number, comment: string } {
+    calculateValueForYear(year: number, params: ParameterMap, currentNetWorth: number, path: number[]): {
+        result: number,
+        comment: string,
+        growth: number,
+        startValue: number,
+        ssPayment: number,
+        newSavings: number,
+        flexExpnse: number,
+        coreExpense: number,
+        healthCare: number
+    } {
 
         const age = params.age;
         const retirementAge = params.retired;
         let ror = 0;
 
-        if(path.length > 0) {
-          ror = path[year];
+        if (path.length > 0) {
+            ror = path[year];
         } else {
-          ror = age + year < retirementAge ? params.rateOfReturn : params.retirementRateOfReturn;
+            ror = age + year < retirementAge ? params.rateOfReturn : params.retirementRateOfReturn;
         }
-        
+
         const startValue = currentNetWorth;
 
         const capEventOneAge = params.capitalEvent1Age;
@@ -159,7 +203,7 @@ export class SimulationService {
         const capEventThreeAmt = params.capitalEvent3;
 
         const currentSavings = params.currentSavingsRate;
-        
+
         const semiRetiredDuration = params.semiRetirementDuration;
         const semiRetiredIncome = params.semiRetiredIncome;
 
@@ -167,7 +211,7 @@ export class SimulationService {
         const ssAge = params.socialSecurityAge;
 
         const cola = params.cola;
-        const healthCare = params.healthInsurance * 12;
+        let healthCare = params.healthInsurance * 12;
         const inflation = params.inflation;
         const taxRate = params.taxRate;
 
@@ -183,10 +227,11 @@ export class SimulationService {
         if (year + age == capEventOneAge) currentNetWorth += (capEventOneAmt * (1 + inflation) ** year);
         if (year + age == capEventTwoAge) currentNetWorth += (capEventTwoAmt * (1 + inflation) ** year);
         if (year + age == capEventThreeAge) currentNetWorth += (capEventThreeAmt * (1 + inflation) ** year);
-        
-        
+
+
         // PRE-RETIREMENT SAVINGS
-        if (year + age < retirementAge) currentNetWorth += (currentSavings * (1 + inflation) ** year);
+        const newSavings = (year + age < retirementAge) ? (currentSavings * (1 + inflation) ** year) : 0;
+        currentNetWorth += newSavings;
 
         // POST-RETIREMENT WORK / INCOME
         if ((year + age >= retirementAge) && (year + age <= retirementAge + semiRetiredDuration)) currentNetWorth += (semiRetiredIncome * (1 + inflation) ** year);
@@ -195,7 +240,7 @@ export class SimulationService {
         const ssPayment = year + age >= ssAge ? ((1 + cola) ** year) * socialSecurity : 0;
 
         // HEALTHCARE
-        const healthcare = year + age < 65 && year + age >= retirementAge ? (((1 + inflation) ** year) * healthCare) : 0;
+        healthCare = ((year + age) < 65) && ((year + age) >= retirementAge) ? (((1 + inflation) ** year) * healthCare) : 0;
 
         let expenses = 0;
 
@@ -204,38 +249,51 @@ export class SimulationService {
             flexExpenses *= (1 - yearlyReduction) ** (year - (retirementAge - age)) * (1 + inflation) ** year;
             coreExpenses *= (1 + inflation) ** year;
 
-            if(path.length > 0) {
+            if (path.length > 0) {
 
-            if (path[year] < -.01) {
-                flexExpenses *= .75;
-            } else if (((flexExpenses + coreExpenses) / currentNetWorth) > widthdrawalTarget * upperBound) {
+                if (path[year] < -.01) {
+                    flexExpenses *= .75;
+                } else if (((flexExpenses + coreExpenses) / currentNetWorth) > widthdrawalTarget * upperBound) {
 
-                flexExpenses *= .8;
+                    flexExpenses *= .8;
 
-            } else if (((flexExpenses + coreExpenses) / currentNetWorth) < widthdrawalTarget * lowerBound) {
+                } else if (((flexExpenses + coreExpenses) / currentNetWorth) < widthdrawalTarget * lowerBound) {
 
-                flexExpenses *= 1.10;
+                    flexExpenses *= 1.10;
 
-            } 
+                }
+            }
+
+        } else {
+            coreExpenses = 0;
+            flexExpenses = 0;
         }
 
-        } 
-        
         expenses = coreExpenses + flexExpenses;
 
-        const widthdrawal = (ssPayment - healthcare - expenses) * (1 + taxRate);
+        const widthdrawal = (ssPayment - healthCare - expenses) * (1 + taxRate);
 
-        const c2 = `${year + age}: ${widthdrawal} from ${currentNetWorth} with ror: ${ror} -> ${currentNetWorth * (1+ror)}`;
-        
+        const c2 = `${year + age}: ${widthdrawal} from ${currentNetWorth} with ror: ${ror} -> ${currentNetWorth * (1 + ror)}`;
+
         currentNetWorth += widthdrawal;
-        let result = currentNetWorth * (1 + ror);
-        const comment = `for year ${year} at ${age}: starting value: \$${Math.round(startValue)} widthdrawal: ${widthdrawal}health: ${healthcare} ss: ${ssPayment}expenses: ${expenses}ending value: ${currentNetWorth}`;
+        const growth = currentNetWorth * ror;
+        let result = currentNetWorth + growth;
+        const comment = `for year ${year} at ${age}: starting value: \$${Math.round(startValue)} widthdrawal: ${widthdrawal}health: ${healthCare} ss: ${ssPayment}expenses: ${expenses}ending value: ${currentNetWorth}`;
 
-        if(path.length == 0) {
+        if (path.length == 0) {
             console.log(comment);
         }
-        
-        return { result: result, comment: comment };
+
+        return {
+            result: result,
+            comment: comment,
+            growth, startValue: (startValue - widthdrawal),
+            ssPayment,
+            newSavings,
+            healthCare,
+            coreExpense: coreExpenses,
+            flexExpnse: flexExpenses
+        };
 
     }
 

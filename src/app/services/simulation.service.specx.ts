@@ -215,7 +215,7 @@ describe('SimulationService', () => {
       const laterResult = service.performLinearAnalysis(laterRetirement);
 
       // Later retirement should have more portfolio growth
-      expect(laterResult).toBeGreaterThan(earlyResult);
+      expect(laterResult).toBeGreaterThan(earlyResult.pop()?.value as number);
     });
 
     it('should produce different results for different rates of return', () => {
@@ -226,7 +226,7 @@ describe('SimulationService', () => {
       const highResult = service.performLinearAnalysis(highROR);
 
       // Higher ROR should produce higher portfolio value
-      expect(highResult).toBeGreaterThan(lowResult);
+      expect(highResult).toBeGreaterThan(lowResult[0].value);
     });
 
     it('should handle a scenario with zero starting portfolio', () => {

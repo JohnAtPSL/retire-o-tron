@@ -22,7 +22,7 @@ export class ParameterRegistryService {
             label: 'Retirement Age',
             type: ParameterType.NUMBER,
             group: 'Basics',
-            defaultValue: 55,
+            defaultValue: 56,
             min: 18,
             max: 100,
             step: 1
@@ -33,7 +33,7 @@ export class ParameterRegistryService {
             type: ParameterType.NUMBER,
             group: 'Finance',
             format: ParameterFormat.CURRENCY,
-            defaultValue: 1500000,
+            defaultValue: 2665000,
             min: 0,
             max: 100000000,
             step: 100
@@ -58,7 +58,7 @@ export class ParameterRegistryService {
             type: ParameterType.NUMBER,
             group: 'Expenses',
             format: ParameterFormat.CURRENCY,
-            defaultValue: 2500,
+            defaultValue: 4000,
             min: 0,
             max: 50000,
             step: 1000
@@ -69,7 +69,7 @@ export class ParameterRegistryService {
             type: ParameterType.NUMBER,
             group: 'Expenses',
             format: ParameterFormat.CURRENCY,
-            defaultValue: 2000,
+            defaultValue: 4000,
             min: 0,
             max: 500000,
             step: 1000
@@ -113,7 +113,7 @@ export class ParameterRegistryService {
             type: ParameterType.NUMBER,
             group: 'Social Security',
             format: ParameterFormat.CURRENCY,
-            defaultValue: 0,
+            defaultValue: 48000,
             min: 0,
             max: 100000,
             step: 100
@@ -156,7 +156,7 @@ export class ParameterRegistryService {
             type: ParameterType.NUMBER,
             group: 'Rates',
             format: ParameterFormat.PERCENTAGE,
-            defaultValue: 0.035,
+            defaultValue: 0.0325,
             min: 0,
             max: 0.20,
             step: 0.0001
@@ -251,9 +251,9 @@ export class ParameterRegistryService {
             type: ParameterType.NUMBER,
             group: 'Rates',
             format: ParameterFormat.PERCENTAGE,
-            defaultValue: 0,
+            defaultValue: .01,
             min: 0,
-            max: 0.10,
+            max: 0.99,
             step: 0.001
         },
         {
@@ -261,7 +261,7 @@ export class ParameterRegistryService {
             label: 'Longevity Age',
             type: ParameterType.NUMBER,
             group: 'Basics',
-            defaultValue: 95,
+            defaultValue: 88,
             min: 18,
             max: 120,
             step: 1
@@ -272,7 +272,7 @@ export class ParameterRegistryService {
             type: ParameterType.NUMBER,
             group: 'Finance',
             format: ParameterFormat.CURRENCY,
-            defaultValue: 10000,
+            defaultValue: 20000,
             min: 0,
             max: 10000000,
             step: 1
