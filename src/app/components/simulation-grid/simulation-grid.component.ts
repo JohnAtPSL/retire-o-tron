@@ -37,9 +37,13 @@ interface GridRow {
 export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('portfolioChart') portfolioChartCanvas?: ElementRef<HTMLCanvasElement>;
   @ViewChild('expensesChart') expensesChartCanvas?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('failYearsChart') failYearsChartCanvas?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('mcStatsChart') mcStatsChartCanvas?: ElementRef<HTMLCanvasElement>;
   private chart?: Chart;
   private expensesChart?: Chart;
-  
+  private failYearsChart?: Chart;
+  private mcStatsChart?: Chart;
+
   private gridApi!: GridApi;
   private destroy$ = new Subject<void>();
   private dataChanged$ = new Subject<void>();
@@ -54,21 +58,21 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     sortable: false,
     filter: false
   };
-  
+
   rowHeight = 32;
 
   columns: SimulationColumn[] = [];
   results: Map<string, SimulationResult> = new Map();
   expandedGroups: Map<string, boolean> = new Map();
   detailViewColumnId: string | null = null;
-  
+
   theme = themeQuartz;
 
   constructor(
     private parameterRegistry: ParameterRegistryService,
     private simulationService: SimulationService,
     private storageService: StorageService
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.initializeColumns();
@@ -81,6 +85,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
   ngAfterViewInit(): void {
     this.renderChart();
     this.renderExpensesChart();
+    this.renderFailYearsChart();
   }
 
   private initializeExpandedGroups(): void {
@@ -90,7 +95,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
 
   private initializeColumns(): void {
     const savedColumns = this.storageService.loadColumns();
-    
+
     if (savedColumns && savedColumns.length > 0) {
       this.columns = savedColumns;
     } else {
@@ -148,7 +153,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
       const isDetailView = this.detailViewColumnId === col.id;
       const shouldHide = this.detailViewColumnId && this.detailViewColumnId !== col.id;
       const detailButtonIcon = isDetailView ? '✕' : '🔍';
-      
+
       this.columnDefs.push({
         headerName: `${col.name} ${detailButtonIcon}`,
         hide: shouldHide || false,
@@ -214,7 +219,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
               return 'Error';
             }
             if (result) {
-              return row.parameterId === 'result1' 
+              return row.parameterId === 'result1'
                 ? this.formatCurrency(result.result1)
                 : this.formatPercentage(result.result2);
             }
@@ -257,7 +262,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
   private valueSetter(params: ValueSetterParams): boolean {
     const row = params.data as GridRow;
     const colId = params.colDef.field;
-    
+
     if (!colId || !row.parameterId) return false;
 
     const column = this.columns.find(c => c.id === colId);
@@ -280,15 +285,15 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     } else {
       paramValue.value = params.newValue;
     }
-    
+
     this.dataChanged$.next();
-    
+
     return true;
   }
 
   private getPrecisionFromStep(step?: number): number {
     if (!step) return 0;
-    
+
     // Calculate decimal places from step value
     const stepStr = step.toString();
     if (stepStr.includes('.')) {
@@ -356,23 +361,27 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
       this.detailViewColumnId = null;
       this.destroyChart();
       this.destroyExpensesChart();
+      this.destroyFailYearsChart();
+      this.destroyMcStatsChart();
     } else {
       // Open detail view for this column
       this.detailViewColumnId = columnId;
     }
-    
+
     // Rebuild column definitions to show/hide columns
     this.setupColumnDefinitions();
-    
+
     if (this.gridApi) {
       this.gridApi.setGridOption('columnDefs', this.columnDefs);
       this.gridApi.refreshCells({ force: true });
     }
-    
+
     // Render charts after view updates
     setTimeout(() => {
       this.renderChart();
       this.renderExpensesChart();
+      this.renderFailYearsChart();
+      this.renderMcStatsChart();
     }, 100);
   }
 
@@ -388,7 +397,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
 
   private formatValue(value: any, paramDef?: ParameterDefinition): string {
     if (value === undefined || value === null) return '';
-    
+
     if (paramDef?.type === ParameterType.BOOLEAN) {
       return value ? 'Yes' : 'No';
     } else if (paramDef?.type === ParameterType.DROPDOWN) {
@@ -402,7 +411,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
       }
       return typeof value === 'number' ? value.toLocaleString() : String(value);
     }
-    
+
     return String(value);
   }
 
@@ -437,10 +446,10 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
 
   onColumnHeaderClicked(event: any): void {
     console.log('Column header clicked:', event); // Debug log
-    
+
     const colId = event.column?.colId || event.column?.colDef?.field;
     console.log('Column ID:', colId); // Debug log
-    
+
     // Only toggle detail view for scenario columns (not the label column)
     if (colId && colId.startsWith('col')) {
       this.toggleDetailView(colId);
@@ -456,7 +465,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
         result2: 0,
         isCalculating: true
       });
-      
+
       return this.simulationService.runSimulation(col);
     });
 
@@ -469,12 +478,14 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
           console.log(this.results);
         });
         this.gridApi?.refreshCells({ force: true });
-        
+
         // Update charts if detail view is open
         if (this.detailViewColumnId) {
           setTimeout(() => {
             this.renderChart();
             this.renderExpensesChart();
+            this.renderFailYearsChart();
+            this.renderMcStatsChart();
           }, 100);
         }
       },
@@ -484,10 +495,25 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     });
   }
 
+  removeColumn(): void {
+    const parameters = this.parameterRegistry.getParameters();
+    
+    this.columns.pop();
+
+    this.setupColumnDefinitions();
+    this.storageService.saveColumns(this.columns);
+
+    // Rebuild grid
+    if (this.gridApi) {
+      this.gridApi.setGridOption('columnDefs', this.columnDefs);
+      this.gridApi.refreshCells({ force: true });
+    }
+  }
+
   addColumn(): void {
     const parameters = this.parameterRegistry.getParameters();
     const newColNum = this.columns.length + 1;
-    
+
     const newColumn: SimulationColumn = {
       id: `col${newColNum}`,
       name: `Scenario ${newColNum}`,
@@ -500,7 +526,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     this.columns.push(newColumn);
     this.setupColumnDefinitions();
     this.storageService.saveColumns(this.columns);
-    
+
     // Rebuild grid
     if (this.gridApi) {
       this.gridApi.setGridOption('columnDefs', this.columnDefs);
@@ -510,10 +536,10 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
 
   copyColumn1ToAll(): void {
     if (this.columns.length === 0) return;
-    
+
     if (confirm('Copy all values from Scenario 1 to all other columns?')) {
       const column1 = this.columns[0];
-      
+
       // Copy column 1 parameters to all other columns
       for (let i = 1; i < this.columns.length; i++) {
         this.columns[i].parameters = column1.parameters.map(p => ({
@@ -521,9 +547,9 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
           value: p.value
         }));
       }
-      
+
       this.storageService.saveColumns(this.columns);
-      
+
       if (this.gridApi) {
         this.gridApi.refreshCells({ force: true });
       }
@@ -537,7 +563,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
       this.columns = []; // Clear existing columns
       this.initializeColumns();
       this.setupColumnDefinitions();
-      
+
       if (this.gridApi) {
         this.gridApi.setGridOption('columnDefs', this.columnDefs);
         this.gridApi.setGridOption('rowData', this.rowData);
@@ -560,17 +586,17 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     if (!this.portfolioChartCanvas || !this.detailViewColumnId) {
       return;
     }
-    
+
     this.destroyChart();
-    
+
     const result = this.getDetailViewResult();
     if (!result?.linearResult || result.linearResult.length === 0) {
       return;
     }
-    
+
     const ctx = this.portfolioChartCanvas.nativeElement.getContext('2d');
     if (!ctx) return;
-    
+
     const config: ChartConfiguration = {
       type: 'bar',
       data: {
@@ -602,6 +628,13 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
             data: result.linearResult.map(d => d.newSavings),
             backgroundColor: 'rgba(156, 39, 176, 0.7)',
             borderColor: 'rgba(156, 39, 176, 1)',
+            borderWidth: 1
+          },
+          {
+            label: 'Capital Event',
+            data: result.linearResult.map(d => d.capitalEvent),
+            backgroundColor: 'rgba(233, 30, 99, 0.7)',
+            borderColor: 'rgba(233, 30, 99, 1)',
             borderWidth: 1
           }
         ]
@@ -648,7 +681,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
         }
       }
     };
-    
+
     this.chart = new Chart(ctx, config);
   }
 
@@ -656,17 +689,17 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     if (!this.expensesChartCanvas || !this.detailViewColumnId) {
       return;
     }
-    
+
     this.destroyExpensesChart();
-    
+
     const result = this.getDetailViewResult();
     if (!result?.linearResult || result.linearResult.length === 0) {
       return;
     }
-    
+
     const ctx = this.expensesChartCanvas.nativeElement.getContext('2d');
     if (!ctx) return;
-    
+
     const config: ChartConfiguration = {
       type: 'bar',
       data: {
@@ -741,8 +774,96 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
         }
       }
     };
-    
+
     this.expensesChart = new Chart(ctx, config);
+  }
+
+  private renderFailYearsChart(): void {
+    if (!this.failYearsChartCanvas || !this.detailViewColumnId) {
+      return;
+    }
+
+    this.destroyFailYearsChart();
+
+    const result = this.getDetailViewResult();
+    if (!result?.failYears || result.failYears.length === 0) {
+      return;
+    }
+
+    const ctx = this.failYearsChartCanvas.nativeElement.getContext('2d');
+    if (!ctx) return;
+
+    // Create labels for each bin (year range)
+    const labels = result.failYears.map((_, index) => `${index + 1}`);
+
+    const fails = result.failYears.map((value, index) => 2500 - value);
+
+    const config: ChartConfiguration = {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Success',
+          data: result.failYears,
+          backgroundColor: 'rgba(76, 175, 80, 0.7)',
+          borderColor: 'rgba(76, 175, 80, 1)',
+          borderWidth: 1
+        },
+        {
+          label: 'Failure',
+          data: fails,
+          backgroundColor: 'rgba(244, 67, 54, 0.7)',
+          borderColor: 'rgba(244, 67, 54, 1)',
+          borderWidth: 1
+        },
+
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          title: {
+            display: true,
+            text: 'Monte Carlo Simulation - Result Distribution',
+            font: { size: 16 }
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const value = context.parsed.y;
+                return value !== null ? `Result: ${value}` : 'N/A';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            stacked: true,
+            title: {
+              display: true,
+              text: 'Years into Retirement'
+            }
+          },
+          y: {
+            beginAtZero: true,
+            stacked: true,
+            ticks: {
+              stepSize: 1
+            },
+            title: {
+              display: true,
+              text: 'Number of Simulations'
+            }
+          }
+        }
+      }
+    };
+
+    this.failYearsChart = new Chart(ctx, config);
   }
 
   private destroyChart(): void {
@@ -759,9 +880,146 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     }
   }
 
+  private destroyFailYearsChart(): void {
+    if (this.failYearsChart) {
+      this.failYearsChart.destroy();
+      this.failYearsChart = undefined;
+    }
+  }
+
+  private renderMcStatsChart(): void {
+    if (!this.mcStatsChartCanvas || !this.detailViewColumnId) {
+      return;
+    }
+
+    this.destroyMcStatsChart();
+
+    const result = this.getDetailViewResult();
+    if (!result?.mcResult?.mcStats || result.mcResult.mcStats.length === 0) {
+      return;
+    }
+
+    const ctx = this.mcStatsChartCanvas.nativeElement.getContext('2d');
+    if (!ctx) return;
+
+    // Filter out undefined values and create labels
+    const validStats = result.mcResult.mcStats.filter(stat => stat !== undefined);
+    if (validStats.length === 0) return;
+
+    const labels = validStats.map((_, index) => `Year ${index + 1}`);
+
+    const config: ChartConfiguration = {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Mean',
+            data: validStats.map(stat => stat!.mean),
+            borderColor: 'rgba(33, 150, 243, 1)',
+            backgroundColor: 'rgba(33, 150, 243, 0.1)',
+            borderWidth: 2,
+            fill: false,
+            tension: 0.4
+          },
+          {
+            label: '90th Percentile',
+            data: validStats.map(stat => stat!.p90),
+            borderColor: 'rgba(76, 175, 80, 1)',
+            backgroundColor: 'rgba(76, 175, 80, 0.1)',
+            borderWidth: 2,
+            fill: false,
+            tension: 0.4
+          },
+          {
+            label: 'Median (50th)',
+            data: validStats.map(stat => stat!.p50),
+            borderColor: 'rgba(255, 152, 0, 1)',
+            backgroundColor: 'rgba(255, 152, 0, 0.1)',
+            borderWidth: 2,
+            fill: false,
+            tension: 0.4
+          },
+          {
+            label: '10th Percentile',
+            data: validStats.map(stat => stat!.p10),
+            borderColor: 'rgba(244, 67, 54, 1)',
+            backgroundColor: 'rgba(244, 67, 54, 0.1)',
+            borderWidth: 2,
+            fill: false,
+            tension: 0.4
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top'
+          },
+          title: {
+            display: true,
+            text: 'Monte Carlo Portfolio Projections',
+            font: { size: 16 }
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const value = context.parsed.y;
+                if (value === null) return 'N/A';
+                return `${context.dataset.label}: $${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: 'Year'
+            }
+          },
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Portfolio Value ($)'
+            },
+            ticks: {
+              stepSize: 5000000,
+              callback: function(value) {
+                return '$' + (value as number).toLocaleString('en-US', { maximumFractionDigits: 0 });
+              }
+            },
+            grid: {
+              display: true,
+              drawOnChartArea: true,
+              drawTicks: true,
+              color: 'rgba(232, 220, 220, 0.15)',
+              lineWidth: 1
+            }
+          }
+        }
+      }
+    };
+
+    this.mcStatsChart = new Chart(ctx, config);
+  }
+
+  private destroyMcStatsChart(): void {
+    if (this.mcStatsChart) {
+      this.mcStatsChart.destroy();
+      this.mcStatsChart = undefined;
+    }
+  }
+
   ngOnDestroy(): void {
     this.destroyChart();
     this.destroyExpensesChart();
+    this.destroyFailYearsChart();
+    this.destroyMcStatsChart();
     this.destroy$.next();
     this.destroy$.complete();
   }

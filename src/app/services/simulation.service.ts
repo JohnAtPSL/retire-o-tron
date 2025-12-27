@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable, of, delay } from 'rxjs';
 import { SimulationColumn } from '../models/simulation-column.model';
-import { MonteCarloResult, SimulationResult } from '../models/simulation-result.model';
+import { MonteCarloResult, SimulationResult, YearlyData } from '../models/simulation-result.model';
 import { ParameterMap } from '../models/parameter.model';
 
 @Injectable({
@@ -46,11 +46,7 @@ export class SimulationService {
 
         this.CFG.initialRegime = Math.random() < 0.5 ? 'bull' : 'bear';
 
-        console.log(`analysis for ${column.name}`);
         const mcResult = this.performMonteCarloAnalysis(params);
-
-        console.log(mcResult);
-
         const result: SimulationResult = {
             columnId: column.id,
             result1: laResult.pop()?.value as number,
@@ -68,12 +64,16 @@ export class SimulationService {
 
         const duration = longevityAge - retirementTarget;
         const result = new Array(duration).fill(0);
-        
-        mcResults.details.forEach(r => {
-            if(r.failYear != -1) {
-                result[r.failYear] = result[r.failYear] + 1;
-            }
-        });
+
+        let success = 2500;   // number of iterations
+
+        for (let i = 0; i < duration; i++) {
+
+            const fails = mcResults.details.filter(d => d.failYear === i).length;
+            success -= fails;
+            result[i] = success;
+
+        }
 
         return result;
 
@@ -93,7 +93,7 @@ export class SimulationService {
 
         let result = 0.0;
         const iterations = 2500;
-        const results: {netWorth: number, failYear: number}[] = [];
+        const results: { netWorth: number, failYear: number }[] = [];
 
         const age = params.age;
         const netWorth = params.currentPortfolio;
@@ -101,41 +101,89 @@ export class SimulationService {
 
         const retirementDuration = targetAge - age;
 
+        const yearlyValues: number[][] = Array.from({ length: retirementDuration }, () =>
+            new Array(iterations).fill(0)
+        );
+
         const mcStartingValue = params.currentPortfolio;
 
         let fail = 0;
 
-
         for (let i = 0; i < iterations; i++) {
+
+            // this is a single iteration . . . .
             let failYear = -1;
-            this.CFG.initialRegime = 'bull';
+            let failed = false;
+            this.CFG.initialRegime = Math.random() < 0.5 ? 'bull' : 'bear';;
             const path = this.generateRegimeSwitchingReturns(retirementDuration);
             let netWorth = mcStartingValue;
             for (let y = 0; y < retirementDuration; y++) {
 
                 netWorth = this.calculateValueForYear(y, params, netWorth, path).result;
-                if (netWorth < 0 && failYear < 0) failYear = y;
+
+                yearlyValues[y][i] = netWorth;
+
+                if (netWorth < 0) {
+                    failed = true;
+                    if(failYear == -1) failYear = y;
+                }
+
+                 
 
             }
 
-            if (netWorth < 0) {
+            if(failed) fail++;
 
-                fail++;
-
-            }
             results.push({ netWorth: netWorth, failYear: failYear });
 
         }
         result = (iterations - fail) / iterations;
 
-        return { success: result * 100, details: results };
+        const mcStats = yearlyValues.map((value, number) => {
+
+            return this.analyzeYearResults(value);
+
+        });
+
+        console.log(mcStats);
+
+        return { success: result * 100, details: results, mcStats };
 
     }
+
+
+    analyzeYearResults(arr: number[]) {
+
+        const x = arr.slice().filter(v => typeof v === 'number' && !isNaN(v)).sort((a, b) => a - b);
+        if (x.length === 0) return;
+
+        const pct = (p: number) => {
+            const idx = (x.length - 1) * p;
+            const lo = Math.floor(idx);
+            const hi = Math.ceil(idx);
+            if (lo === hi) return x[lo];
+            return x[lo] + (x[hi] - x[lo]) * (idx - lo);
+        };
+
+        const mean = x.reduce((s, v) => s + v, 0) / x.length;
+
+        const result = {
+            mean: mean,
+            p10: pct(0.10),
+            p50: pct(0.50),
+            p90: pct(0.90)
+        }
+
+        return result;
+
+    }
+
+
 
     performLinearAnalysis(params: ParameterMap) {
 
 
-        const result: { year: number, value: number, growth: number, startValue: number, ssPayment: number, newSavings: number, coreExpense: number, flexExpense: number, healthCare: number }[] = [];
+        const result: YearlyData[] = [];
 
         const age = params.age;
         const netWorth = params.currentPortfolio;
@@ -161,7 +209,9 @@ export class SimulationService {
                 newSavings: answer.newSavings,
                 coreExpense: answer.coreExpense,
                 flexExpense: answer.flexExpnse,
-                healthCare: answer.healthCare
+                healthCare: answer.healthCare,
+                capitalEvent: answer.captialEvent
+
             });
 
             workingNetWorth = answer.result;
@@ -180,7 +230,8 @@ export class SimulationService {
         newSavings: number,
         flexExpnse: number,
         coreExpense: number,
-        healthCare: number
+        healthCare: number,
+        captialEvent: number
     } {
 
         const age = params.age;
@@ -223,11 +274,14 @@ export class SimulationService {
         const upperBound = params.upperBound;
         const widthdrawalTarget = params.targetWithdrawalRate;
 
-        // CAPITAL EVENTS
-        if (year + age == capEventOneAge) currentNetWorth += (capEventOneAmt * (1 + inflation) ** year);
-        if (year + age == capEventTwoAge) currentNetWorth += (capEventTwoAmt * (1 + inflation) ** year);
-        if (year + age == capEventThreeAge) currentNetWorth += (capEventThreeAmt * (1 + inflation) ** year);
+        let captialEventAmt = 0;
 
+        // CAPITAL EVENTS
+        if (year + age == capEventOneAge) captialEventAmt += (capEventOneAmt * (1 + inflation) ** year);
+        if (year + age == capEventTwoAge) captialEventAmt += (capEventTwoAmt * (1 + inflation) ** year);
+        if (year + age == capEventThreeAge) captialEventAmt += (capEventThreeAmt * (1 + inflation) ** year);
+
+        currentNetWorth += captialEventAmt;
 
         // PRE-RETIREMENT SAVINGS
         const newSavings = (year + age < retirementAge) ? (currentSavings * (1 + inflation) ** year) : 0;
@@ -281,7 +335,7 @@ export class SimulationService {
         const comment = `for year ${year} at ${age}: starting value: \$${Math.round(startValue)} widthdrawal: ${widthdrawal}health: ${healthCare} ss: ${ssPayment}expenses: ${expenses}ending value: ${currentNetWorth}`;
 
         if (path.length == 0) {
-            console.log(comment);
+            // console.log(comment);
         }
 
         return {
@@ -292,7 +346,8 @@ export class SimulationService {
             newSavings,
             healthCare,
             coreExpense: coreExpenses,
-            flexExpnse: flexExpenses
+            flexExpnse: flexExpenses,
+            captialEvent: captialEventAmt
         };
 
     }

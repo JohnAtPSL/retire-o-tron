@@ -4,7 +4,10 @@
     <div class="button-group">
       <button (click)="runSimulations()" class="btn btn-primary">Run Simulations</button>
       <button (click)="copyColumn1ToAll()" class="btn btn-info">Copy Column 1 to All</button>
-      <button (click)="addColumn()" class="btn btn-secondary">Add Column</button>
+      <button (click)="removeColumn()" class="btn btn-secondary">−</button>
+      
+      <input type="text" [value]="columnDefs.length - 1" readonly class="column-count-input" title="Number of columns">
+      <button (click)="addColumn()" class="btn btn-secondary">+</button>
       <button (click)="resetData()" class="btn btn-danger">Reset Data</button>
     </div>
   </div>
@@ -57,6 +60,8 @@
 
 
 
+      
+
          <div class="detail-section">
           <h4>Linear Analysis</h4>
          
@@ -78,7 +83,20 @@
 
          <div class="detail-section">
           <h4>Monte Carlo Analysis</h4>
-         
+          
+          <div class="detail-section">
+            <h4>Portfolio Value Distribution Over Time</h4>
+            <div class="chart-container">
+              <canvas #mcStatsChart></canvas>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <h4>Monte Carlo Failure Distribution</h4>
+            <div class="chart-container">
+              <canvas #failYearsChart></canvas>
+            </div>
+          </div>
         </div>
 
         <div class="detail-section">
