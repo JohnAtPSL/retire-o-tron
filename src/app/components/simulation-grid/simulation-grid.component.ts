@@ -39,10 +39,14 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
   @ViewChild('expensesChart') expensesChartCanvas?: ElementRef<HTMLCanvasElement>;
   @ViewChild('failYearsChart') failYearsChartCanvas?: ElementRef<HTMLCanvasElement>;
   @ViewChild('mcStatsChart') mcStatsChartCanvas?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('returnsDistChart') returnsDistChartCanvas?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('failedPathsChart') failedPathsChartCanvas?: ElementRef<HTMLCanvasElement>;
   private chart?: Chart;
   private expensesChart?: Chart;
   private failYearsChart?: Chart;
   private mcStatsChart?: Chart;
+  private returnsDistChart?: Chart;
+  private failedPathsChart?: Chart;
 
   private gridApi!: GridApi;
   private destroy$ = new Subject<void>();
@@ -65,8 +69,6 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
   results: Map<string, SimulationResult> = new Map();
   expandedGroups: Map<string, boolean> = new Map();
   detailViewColumnId: string | null = null;
-
-  theme = themeQuartz;
 
   constructor(
     private parameterRegistry: ParameterRegistryService,
@@ -134,9 +136,9 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
         },
         cellStyle: (params) => {
           if (params.data.rowType === 'result') {
-            return { fontWeight: 'bold', backgroundColor: '#e3f2fd' } as any;
+            return { fontWeight: 'bold' } as any;
           } else if (params.data.rowType === 'group') {
-            return { fontWeight: 'bold', backgroundColor: '#f5f5f5', fontStyle: 'italic', cursor: 'pointer' } as any;
+            return { fontWeight: 'bold', fontStyle: 'italic', cursor: 'pointer' } as any;
           }
           return { paddingLeft: '20px' } as any;
         },
@@ -249,7 +251,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
         cellStyle: (params) => {
           const row = params.data as GridRow;
           if (row.rowType === 'result') {
-            return { fontWeight: 'bold', backgroundColor: '#e8f5e9', textAlign: 'right' } as any;
+            return { fontWeight: 'bold', textAlign: 'right' } as any;
           } else if (row.rowType === 'parameter' && row.parameterDef?.type === ParameterType.NUMBER) {
             return { textAlign: 'right' } as any;
           }
@@ -363,6 +365,8 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
       this.destroyExpensesChart();
       this.destroyFailYearsChart();
       this.destroyMcStatsChart();
+      this.destroyReturnsDistChart();
+      this.destroyFailedPathsChart();
     } else {
       // Open detail view for this column
       this.detailViewColumnId = columnId;
@@ -382,6 +386,8 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
       this.renderExpensesChart();
       this.renderFailYearsChart();
       this.renderMcStatsChart();
+      this.renderReturnsDistChart();
+      this.renderFailedPathsChart();
     }, 100);
   }
 
@@ -486,6 +492,8 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
             this.renderExpensesChart();
             this.renderFailYearsChart();
             this.renderMcStatsChart();
+            this.renderReturnsDistChart();
+            this.renderFailedPathsChart();
           }, 100);
         }
       },
@@ -497,7 +505,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
 
   removeColumn(): void {
     const parameters = this.parameterRegistry.getParameters();
-    
+
     this.columns.pop();
 
     this.setupColumnDefinitions();
@@ -597,10 +605,17 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     const ctx = this.portfolioChartCanvas.nativeElement.getContext('2d');
     if (!ctx) return;
 
+    const column = this.getSelectedColumnDetails();
+    const ageParam = column?.parameters.find(p => p.parameterId === 'age');
+    const startingAge = ageParam ? Number(ageParam.value) : 0;
+
+    const years = result.linearResult.length;
+    const labels = Array.from({ length: years }, (_, i) => `${startingAge + i}`);
+
     const config: ChartConfiguration = {
       type: 'bar',
       data: {
-        labels: result.linearResult.map(d => d.year.toString()),
+        labels:  labels,
         datasets: [
           {
             label: 'Starting Value',
@@ -668,7 +683,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
             stacked: true,
             title: {
               display: true,
-              text: 'Year'
+              text: 'Age'
             }
           },
           y: {
@@ -757,7 +772,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
             stacked: true,
             title: {
               display: true,
-              text: 'Year'
+              text: 'Age'
             }
           },
           y: {
@@ -904,9 +919,13 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
 
     // Filter out undefined values and create labels
     const validStats = result.mcResult.mcStats.filter(stat => stat !== undefined);
-    if (validStats.length === 0) return;
+    const years = result.mcResult.mcStats.length;
+    const column = this.getSelectedColumnDetails();
+    const ageParam = column?.parameters.find(p => p.parameterId === 'age');
+    const startingAge = ageParam ? Number(ageParam.value) : 0;
+    const labels = Array.from({ length: years }, (_, i) => `${startingAge + i}`);
 
-    const labels = validStats.map((_, index) => `Year ${index + 1}`);
+    if (validStats.length === 0) return;
 
     const config: ChartConfiguration = {
       type: 'line',
@@ -978,7 +997,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
           x: {
             title: {
               display: true,
-              text: 'Year'
+              text: 'Age'
             }
           },
           y: {
@@ -989,7 +1008,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
             },
             ticks: {
               stepSize: 5000000,
-              callback: function(value) {
+              callback: function (value) {
                 return '$' + (value as number).toLocaleString('en-US', { maximumFractionDigits: 0 });
               }
             },
@@ -997,8 +1016,14 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
               display: true,
               drawOnChartArea: true,
               drawTicks: true,
-              color: 'rgba(232, 220, 220, 0.15)',
-              lineWidth: 1
+              color: 'rgba(232, 220, 220, 0.86)',
+              lineWidth: (context) => {
+                // Make the zero line thicker
+                if (context.tick.value === 0) {
+                  return 2;
+                }
+                return 1;
+              }
             }
           }
         }
@@ -1015,11 +1040,243 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     }
   }
 
+  private renderReturnsDistChart(): void {
+    if (!this.returnsDistChartCanvas || !this.detailViewColumnId) {
+      return;
+    }
+
+    this.destroyReturnsDistChart();
+
+    const result = this.getDetailViewResult();
+    if (!result?.mcResult?.paths || result.mcResult.paths.length === 0) {
+      return;
+    }
+
+    const ctx = this.returnsDistChartCanvas.nativeElement.getContext('2d');
+    if (!ctx) return;
+
+    const { bins, labels } = this.simulationService.binReturnsDistribution(result.mcResult.paths);
+    const failed = this.simulationService.binReturnsDistribution(result.mcResult.failedPaths);
+    const succeeded = this.simulationService.binReturnsDistribution(result.mcResult.succeededPaths);
+
+    const config: ChartConfiguration = {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+        {
+          showLine: false,
+          label: 'Frequency',
+          data: bins,
+          backgroundColor: 'rgba(54, 162, 235, 0.7)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+          borderWidth: 1,
+          pointRadius: 0
+        },
+        {
+          label: 'Failed Paths',
+          data: failed.bins,
+          backgroundColor: 'rgba(239, 56, 32, 0.38)',
+          borderColor: 'rgba(231, 25, 18, 1)',
+          borderWidth: 1,
+          pointRadius: 0
+        },
+        {
+          label: 'Successful Paths',
+          data: succeeded.bins,
+          backgroundColor: 'rgba(14, 232, 72, 0.58)',
+          borderColor: 'rgba(21, 207, 33, 1)',
+          borderWidth: 1,
+          pointRadius: 0
+        }
+      ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true
+          },
+          title: {
+            display: true,
+            text: 'Return Distribution',
+            font: { size: 16 }
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const value = context.parsed.y;
+                return value !== null ? `Frequency: ${value.toLocaleString()}` : 'N/A';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: 'Return Range'
+            },
+            ticks: {
+              maxRotation: 45,
+              minRotation: 45
+            }
+          },
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Number of Occurrences'
+            }
+          }
+        }
+      }
+    };
+
+    this.returnsDistChart = new Chart(ctx, config);
+  }
+
+  private destroyReturnsDistChart(): void {
+    if (this.returnsDistChart) {
+      this.returnsDistChart.destroy();
+      this.returnsDistChart = undefined;
+    }
+  }
+
+  private renderFailedPathsChart(): void {
+    if (!this.failedPathsChartCanvas || !this.detailViewColumnId) {
+      return;
+    }
+
+    this.destroyFailedPathsChart();
+
+    const result = this.getDetailViewResult();
+    if (!result?.mcResult?.failedPaths || result.mcResult.failedPaths.length === 0) {
+      return;
+    }
+
+    const ctx = this.failedPathsChartCanvas.nativeElement.getContext('2d');
+    if (!ctx) return;
+
+    // Get starting age from column parameters
+    const column = this.getSelectedColumnDetails();
+    const ageParam = column?.parameters.find(p => p.parameterId === 'age');
+    const startingAge = ageParam ? Number(ageParam.value) : 0;
+
+    // Create labels for years (using age)
+    const years = result.mcResult.failedPaths[0].length;
+    const labels = Array.from({ length: years }, (_, i) => `${startingAge + i}`);
+
+    // Create datasets for each failed path (limit to show for performance)
+    const maxPathsToShow = 50;
+    const pathsToShow = result.mcResult.failedPaths.slice(0, maxPathsToShow);
+    const morePaths = result.mcResult.succeededPaths.slice(0, maxPathsToShow);
+    
+    const datasets = pathsToShow.map((path, index) => ({
+      label: `Failed Path ${index + 1}`,
+      data: path,
+      borderColor: `rgba(244, 67, 54, ${0.3 - (index / pathsToShow.length) * 0.2})`,
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      pointRadius: 0,
+      tension: 0.4
+    }));
+
+    datasets.push(...morePaths.map((path, index) => ({
+      label: `Success Path ${index + 1}`,
+      data: path,
+      borderColor: `rgba(76, 175, 80, ${0.3 - (index / pathsToShow.length) * 0.2})`,
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      pointRadius: 0,
+      tension: 0.4
+    })));
+
+    const config: ChartConfiguration = {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          title: {
+            display: true,
+            text: `Market Return Paths (showing 100 of ${result.mcResult.paths.length})`,
+            font: { size: 16 }
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            callbacks: {
+              label: (context) => {
+                const value = context.parsed.y;
+                if (value === null) return 'N/A';
+                return `${context.dataset.label}: ${value.toFixed(4)}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: 'Age'
+            }
+          },
+          y: {
+            beginAtZero: false,
+            title: {
+              display: true,
+              text: 'Rate of Return'
+            },
+            grid: {
+              color: (context) => {
+                if (context.tick.value === 0) {
+                  return 'rgba(244, 67, 54, 0.8)';
+                }
+                return 'rgba(0, 0, 0, 0.1)';
+              },
+              lineWidth: (context) => {
+                if (context.tick.value === 0) {
+                  return 3;
+                }
+                return 1;
+              }
+            },
+            ticks: {
+              callback: function(value) {
+                return (value as number).toFixed(3);
+              }
+            }
+          }
+        }
+      }
+    };
+
+    this.failedPathsChart = new Chart(ctx, config);
+  }
+
+  private destroyFailedPathsChart(): void {
+    if (this.failedPathsChart) {
+      this.failedPathsChart.destroy();
+      this.failedPathsChart = undefined;
+    }
+  }
+
   ngOnDestroy(): void {
     this.destroyChart();
     this.destroyExpensesChart();
     this.destroyFailYearsChart();
     this.destroyMcStatsChart();
+    this.destroyReturnsDistChart();
+    this.destroyFailedPathsChart();
     this.destroy$.next();
     this.destroy$.complete();
   }

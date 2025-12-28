@@ -26,4 +26,7 @@ export interface MonteCarloResult {
     success: number;
     details: { netWorth: number; failYear: number }[];
     mcStats: ({ mean: number; p10: number; p50: number; p90: number } | undefined)[];
+    paths: number[][];
+    failedPaths: number[][];
+    succeededPaths: number[][];
 }

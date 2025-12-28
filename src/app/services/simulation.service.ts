@@ -22,14 +22,14 @@ export class SimulationService {
     private readonly CFG = {
         initialRegime: "bull",
         // Regime model parameters (example values; adjust)
-        bull: { mu: 0.075, sigma: 0.15 },
-        bear: { mu: 0.01, sigma: 0.22 },
+        bull: { mu: 0.095, sigma: 0.15 },
+        bear: { mu: -0.03, sigma: 0.22 },
 
         // Markov transition probabilities
         // pBB: P(bull next year | bull this year)
         // pRR: P(bear next year | bear this year)
-        pBB: 0.88,
-        pRR: 0.70,
+        pBB: 0.85,
+        pRR: 0.30,
 
         // Optional: clamp extreme returns (helps avoid nonsensical blow-ups)
         clamp: { min: -0.60, max: 0.80 } // -60% to +80%
@@ -94,6 +94,9 @@ export class SimulationService {
         let result = 0.0;
         const iterations = 2500;
         const results: { netWorth: number, failYear: number }[] = [];
+        const paths: number[][] = [];
+        const failedPaths: number[][] = [];
+        const succeededPaths: number[][] = [];
 
         const age = params.age;
         const netWorth = params.currentPortfolio;
@@ -109,6 +112,7 @@ export class SimulationService {
 
         let fail = 0;
 
+
         for (let i = 0; i < iterations; i++) {
 
             // this is a single iteration . . . .
@@ -116,6 +120,7 @@ export class SimulationService {
             let failed = false;
             this.CFG.initialRegime = Math.random() < 0.5 ? 'bull' : 'bear';;
             const path = this.generateRegimeSwitchingReturns(retirementDuration);
+            paths.push(path);
             let netWorth = mcStartingValue;
             for (let y = 0; y < retirementDuration; y++) {
 
@@ -128,28 +133,70 @@ export class SimulationService {
                     if(failYear == -1) failYear = y;
                 }
 
-                 
-
             }
 
-            if(failed) fail++;
+            if(failed) 
+                {
+                    fail++;
+                    failedPaths.push(path);
+                } else
+                {
+                    succeededPaths.push(path);
+                }
+            
 
             results.push({ netWorth: netWorth, failYear: failYear });
 
         }
+
+        // simulation complete for scenario - process results
         result = (iterations - fail) / iterations;
-
         const mcStats = yearlyValues.map((value, number) => {
-
             return this.analyzeYearResults(value);
-
         });
 
-        console.log(mcStats);
 
-        return { success: result * 100, details: results, mcStats };
+        return { success: result * 100, details: results, mcStats, paths, failedPaths, succeededPaths };
 
     }
+
+    binReturnsDistribution(paths: number[][]): { bins: number[], labels: string[] } {
+    const minValue = -0.6;
+    const maxValue = 0.8;
+    const binWidth = 0.05; // Adjust for more/fewer bins
+    const numBins = Math.ceil((maxValue - minValue) / binWidth);
+    
+    const bins = new Array(numBins).fill(0);
+    const labels: string[] = [];
+    
+    // Create labels
+    for (let i = 0; i < numBins; i++) {
+        const lower = minValue + (i * binWidth);
+        const upper = lower + binWidth;
+        labels.push(`${(lower * 100).toFixed(0)}%`); // to ${(upper * 100).toFixed(0)}%`);
+    }
+
+    console.log(labels);
+    
+    // Flatten and count
+    paths.forEach(path => {
+        path.forEach(value => {
+            // Determine which bin this value belongs to
+            const binIndex = Math.floor((value - minValue) / binWidth);
+            
+            // Handle edge cases
+            if (binIndex >= 0 && binIndex < numBins) {
+                bins[binIndex]++;
+            } else if (value === maxValue) {
+                // Put max value in last bin
+                bins[numBins - 1]++;
+            }
+        });
+    });
+    
+    return { bins, labels };
+
+}
 
 
     analyzeYearResults(arr: number[]) {
@@ -306,14 +353,14 @@ export class SimulationService {
             if (path.length > 0) {
 
                 if (path[year] < -.01) {
-                    flexExpenses *= .75;
+                    flexExpenses *= .70;
                 } else if (((flexExpenses + coreExpenses) / currentNetWorth) > widthdrawalTarget * upperBound) {
 
-                    flexExpenses *= .8;
+                    flexExpenses *= .75;
 
                 } else if (((flexExpenses + coreExpenses) / currentNetWorth) < widthdrawalTarget * lowerBound) {
 
-                    flexExpenses *= 1.10;
+                    flexExpenses *= 1.0;
 
                 }
             }

@@ -2,6 +2,8 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  background-color: #1e1e1e;
+  color: #e0e0e0;
   padding: 15px;
 
   &.detail-view-active {
@@ -109,9 +111,60 @@ ag-grid-angular,
     min-width: 400px;
   }
   
+  // Core grid styling
+  ::ng-deep .ag-root-wrapper {
+    background-color: #2d2d2d;
+  }
+  
+  ::ng-deep .ag-theme-quartz,
+  ::ng-deep .ag-theme-alpine {
+    --ag-background-color: #2d2d2d;
+    --ag-foreground-color: #e0e0e0;
+    --ag-header-background-color: #1e1e1e;
+    --ag-header-foreground-color: #e0e0e0;
+    --ag-odd-row-background-color: #2d2d2d;
+    --ag-row-hover-color: #3a3a3a;
+    --ag-border-color: #444;
+  }
+  
+  ::ng-deep .ag-header {
+    background-color: #1e1e1e !important;
+    border-bottom: 1px solid #444;
+  }
+  
+  ::ng-deep .ag-header-cell,
+  ::ng-deep .ag-header-group-cell {
+    background-color: #1e1e1e !important;
+    color: #e0e0e0 !important;
+    border-right: 1px solid #444;
+  }
+  
+  ::ng-deep .ag-row {
+    background-color: #2d2d2d;
+    color: #e0e0e0;
+    border-bottom: 1px solid #444;
+  }
+  
+  ::ng-deep .ag-row-even {
+    background-color: #2a2a2a;
+  }
+  
+  ::ng-deep .ag-row-odd {
+    background-color: #2d2d2d;
+  }
+  
+  ::ng-deep .ag-pinned-top-row {
+    background-color: #1e1e1e !important;
+    color: #64b5f6 !important;
+    font-weight: bold;
+    border-bottom: 2px solid #1976d2;
+  }
+  
   ::ng-deep .ag-cell {
     padding: 4px 8px;
     line-height: 24px;
+    color: #e0e0e0 !important;
+    border-right: 1px solid #444;
   }
   
   ::ng-deep .ag-header-cell {
@@ -121,37 +174,48 @@ ag-grid-angular,
       cursor: pointer;
       
       &:hover {
-        background-color: #e3f2fd;
+        background-color: #3a3a3a !important;
       }
     }
   }
   
   ::ng-deep .header-with-detail-btn .ag-header-cell-text {
     cursor: pointer;
+    color: #e0e0e0;
     
     &:hover {
-      color: #1976d2;
+      color: #64b5f6;
     }
   }
   
   ::ng-deep .header-detail-active {
-    background-color: #e3f2fd !important;
+    background-color: #3a3a3a !important;
     
     .ag-header-cell-text {
       font-weight: bold;
-      color: #1976d2;
+      color: #64b5f6 !important;
     }
+  }
+  
+  ::ng-deep .ag-row-hover {
+    background-color: #3a3a3a !important;
+  }
+  
+  ::ng-deep .ag-row-group {
+    background-color: #1e1e1e !important;
+    color: #b0b0b0 !important;
+    font-weight: 600;
   }
 }
 
 .detail-panel {
   flex: 1;
-  background: white;
-  border: 1px solid #ddd;
+  background: #2d2d2d;
+  border: 1px solid #444;
   border-radius: 4px;
   padding: 20px;
   overflow-y: auto;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
   animation: slideIn 0.3s ease-out;
   
   .detail-header {
@@ -164,7 +228,7 @@ ag-grid-angular,
     
     h3 {
       margin: 0;
-      color: #1976d2;
+      color: #64b5f6;
     }
     
     .close-btn {
@@ -192,14 +256,12 @@ ag-grid-angular,
   
   h3 {
     margin-top: 0;
-    color: #1976d2;
+    color: #64b5f6;
     font-size: 1.2rem;
-    // border-bottom: 2px solid #1976d2;
-    // padding-bottom: 10px;
   }
   
   h4 {
-    color: #333;
+    color: #b0b0b0;
     font-size: 1rem;
     margin-top: 0;
     margin-bottom: 15px;
@@ -221,9 +283,9 @@ ag-grid-angular,
     height: 400px;
     margin-bottom: 20px;
     padding: 15px;
-    background: #fafafa;
+    background: #1e1e1e;
     border-radius: 4px;
-    border: 1px solid #e0e0e0;
+    border: 1px solid #444;
   }
   
   .results-grid {
@@ -236,17 +298,17 @@ ag-grid-angular,
     justify-content: space-between;
     align-items: center;
     padding: 12px;
-    background: #f5f5f5;
+    background: #1e1e1e;
     border-radius: 4px;
     
     .result-label {
       font-weight: 500;
-      color: #555;
+      color: #b0b0b0;
     }
     
     .result-value {
       font-weight: bold;
-      color: #1976d2;
+      color: #64b5f6;
       font-size: 1.1rem;
     }
     
@@ -263,7 +325,7 @@ ag-grid-angular,
   .no-results {
     padding: 20px;
     text-align: center;
-    color: #999;
+    color: #666;
     font-style: italic;
   }
   
@@ -276,17 +338,17 @@ ag-grid-angular,
     display: flex;
     justify-content: space-between;
     padding: 8px 12px;
-    background: #fafafa;
+    background: #1e1e1e;
     border-left: 3px solid #1976d2;
     font-size: 0.9rem;
     
     .param-label {
-      color: #666;
+      color: #b0b0b0;
     }
     
     .param-value {
       font-weight: 500;
-      color: #333;
+      color: #e0e0e0;
     }
   }
 }

@@ -1,11 +1,10 @@
 <div class="grid-container" [class.detail-view-active]="detailViewColumnId">
   <div class="toolbar">
-    <h2>Retirement Simulation Grid</h2>
+    <h2 style="color:aliceblue">Retire-O-Tron</h2>
     <div class="button-group">
       <button (click)="runSimulations()" class="btn btn-primary">Run Simulations</button>
       <button (click)="copyColumn1ToAll()" class="btn btn-info">Copy Column 1 to All</button>
       <button (click)="removeColumn()" class="btn btn-secondary">−</button>
-      
       <input type="text" [value]="columnDefs.length - 1" readonly class="column-count-input" title="Number of columns">
       <button (click)="addColumn()" class="btn btn-secondary">+</button>
       <button (click)="resetData()" class="btn btn-danger">Reset Data</button>
@@ -14,13 +13,11 @@
 
   <div class="content-area">
     <ag-grid-angular
-      class="simulation-grid"
       [class.grid-with-detail]="detailViewColumnId"
       [columnDefs]="columnDefs"
       [rowData]="rowData"
       [pinnedTopRowData]="pinnedTopRowData"
       [defaultColDef]="defaultColDef"
-      [theme]="theme"
       [rowHeight]="rowHeight"
       (gridReady)="onGridReady($event)"
       (columnHeaderClicked)="onColumnHeaderClicked($event)"
@@ -88,6 +85,20 @@
             <h4>Portfolio Value Distribution Over Time</h4>
             <div class="chart-container">
               <canvas #mcStatsChart></canvas>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <h4>Failed Simulation Paths</h4>
+            <div class="chart-container">
+              <canvas #failedPathsChart></canvas>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <h4>Return Distribution</h4>
+            <div class="chart-container">
+              <canvas #returnsDistChart></canvas>
             </div>
           </div>
 
