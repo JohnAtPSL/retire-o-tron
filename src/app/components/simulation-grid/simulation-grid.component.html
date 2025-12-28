@@ -40,6 +40,8 @@
       [singleClickEdit]="true"
       [stopEditingWhenCellsLoseFocus]="true"
       [suppressRowClickSelection]="true"
+      [enterNavigatesVertically]="true"
+      [enterNavigatesVerticallyAfterEdit]="true"
     />
 
     <div *ngIf="detailViewColumnId" class="detail-panel">
@@ -140,12 +142,5 @@
   </div>
 
   <!-- Help Modal -->
-  <div *ngIf="showHelpModal" class="modal-overlay" (click)="showHelpModal = false">
-    <div class="modal-dialog" (click)="$event.stopPropagation()">
-      <div class="modal-content">
-        <button class="modal-close" (click)="showHelpModal = false">&times;</button>
-        <h1>WTF?</h1>
-      </div>
-    </div>
-  </div>
+  <app-help-modal *ngIf="showHelpModal" (close)="showHelpModal = false"></app-help-modal>
 </div>

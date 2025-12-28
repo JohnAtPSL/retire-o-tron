@@ -15,6 +15,12 @@ export interface DropdownOption {
   value: string | number;
 }
 
+export interface regime {
+  mu: number;
+  sigma: number;
+  continues: number;
+}
+
 export interface ParameterDefinition {
   id: string;
   label: string;
@@ -26,6 +32,7 @@ export interface ParameterDefinition {
   min?: number;
   max?: number;
   step?: number;
+  hidden?: boolean;
 }
 
 export interface ParameterValue {
@@ -66,5 +73,6 @@ export interface ParameterMap {
   inflation: number;
   pensionAmount: number;
   pensionAge: number;
-  
+  bearRate: number;
+  bullRate: number;
 }

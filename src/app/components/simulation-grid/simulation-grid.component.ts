@@ -11,6 +11,7 @@ import { StorageService } from '../../services/storage.service';
 import { ParameterDefinition, ParameterType, ParameterFormat } from '../../models/parameter.model';
 import { SimulationColumn } from '../../models/simulation-column.model';
 import { SimulationResult } from '../../models/simulation-result.model';
+import { HelpModalComponent } from '../help-modal/help-modal.component';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -30,7 +31,7 @@ interface GridRow {
 @Component({
   selector: 'app-simulation-grid',
   standalone: true,
-  imports: [CommonModule, AgGridAngular],
+  imports: [CommonModule, AgGridAngular, HelpModalComponent],
   templateUrl: './simulation-grid.component.html',
   styleUrls: ['./simulation-grid.component.scss']
 })
@@ -108,9 +109,9 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     if (savedColumns && savedColumns.length > 0) {
       this.columns = savedColumns;
     } else {
-      // Create 10 default columns
+      // Create 5 default columns
       const parameters = this.parameterRegistry.getParameters();
-      for (let i = 1; i <= 10; i++) {
+      for (let i = 1; i <= 5; i++) {
         this.columns.push({
           id: `col${i}`,
           name: `Scenario ${i}`,

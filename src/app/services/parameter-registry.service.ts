@@ -107,7 +107,7 @@ export class ParameterRegistryService {
             max: 500000,
             step: 1000
         },
-          {
+        {
             id: 'socialSecurityAmount',
             label: 'Social Security Amount',
             type: ParameterType.NUMBER,
@@ -128,7 +128,7 @@ export class ParameterRegistryService {
             max: 70,
             step: 1
         },
-          {
+        {
             id: 'pensionAmount',
             label: 'Pension Amount',
             type: ParameterType.NUMBER,
@@ -170,7 +170,7 @@ export class ParameterRegistryService {
             min: 0,
             max: 0.20,
             step: 0.001
-        }, 
+        },
         {
             id: 'inflation',
             label: 'Inflation',
@@ -278,6 +278,28 @@ export class ParameterRegistryService {
             step: 0.001
         },
         {
+            id: 'bullRate',
+            label: 'Bull Market ROR',
+            type: ParameterType.NUMBER,
+            group: 'Rates',
+            format: ParameterFormat.PERCENTAGE,
+            defaultValue: .095,
+            min: 0,
+            max: 0.99,
+            step: 0.001
+        },
+        {
+            id: 'bearRate',
+            label: 'Bear Market ROR',
+            type: ParameterType.NUMBER,
+            group: 'Rates',
+            format: ParameterFormat.PERCENTAGE,
+            defaultValue: -.020,
+            min: -0.99,
+            max: 0.99,
+            step: 0.001
+        },
+        {
             id: 'longevityAge',
             label: 'Longevity Age',
             type: ParameterType.NUMBER,
@@ -344,7 +366,8 @@ export class ParameterRegistryService {
             type: ParameterType.BOOLEAN,
             group: 'Modeling',
             defaultValue: true
-        }
+        },
+
     ];
 
     getParameters(): ParameterDefinition[] {
@@ -360,6 +383,6 @@ export class ParameterRegistryService {
     }
 
     getParametersByGroup(group: string): ParameterDefinition[] {
-        return this.parameters.filter(p => p.group === group);
+        return this.parameters.filter(p => p.group === group && p!.hidden != true);
     }
 }

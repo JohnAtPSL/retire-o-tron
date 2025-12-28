@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { Observable, of, delay } from 'rxjs';
 import { SimulationColumn } from '../models/simulation-column.model';
 import { MonteCarloResult, SimulationResult, YearlyData } from '../models/simulation-result.model';
-import { ParameterMap } from '../models/parameter.model';
+import { ParameterMap, regime } from '../models/parameter.model';
 
 @Injectable({
     providedIn: 'root'
@@ -19,30 +19,19 @@ export class SimulationService {
         return params as ParameterMap;
     }
 
-    private readonly CFG = {
-        initialRegime: "bull",
-        // Regime model parameters (example values; adjust)
-        bull: { mu: 0.105, sigma: 0.15 },
-        bear: { mu: -0.03, sigma: 0.22 },
-
-        // Markov transition probabilities
-        // pBB: P(bull next year | bull this year)
-        // pRR: P(bear next year | bear this year)
-        pBB: 0.85,
-        pRR: 0.30,
-    }
-
     /**
      * Runs a simulation for a given column configuration
      */
-    runSimulation(column: SimulationColumn, mode: "real" | "nominal"): 
+    runSimulation(column: SimulationColumn, mode: "real" | "nominal"):
         Observable<SimulationResult> {
 
         const params = this.mapParameters(column);
 
-        if(mode == 'real') {
+        if (mode == 'real') {
             params.rateOfReturn -= params.inflation;
             params.retirementRateOfReturn -= params.inflation;
+            params.bullRate = ((1 + params.bullRate) / (1 + params.inflation)) - 1;
+            params.bearRate = ((1 + params.bearRate) / (1 + params.inflation)) - 1;
             params.cola = 0;
             params.inflation = 0;
         }
@@ -86,6 +75,11 @@ export class SimulationService {
 
         let result = 0.0;
         const iterations = 2500;
+
+        // create regimes:
+        const bull: regime = { mu: params.bullRate, sigma: .15, continues: .85 };
+        const bear: regime = { mu: params.bearRate, sigma: .22, continues: .30 };
+
         const results: { netWorth: number, failYear: number }[] = [];
         const paths: number[][] = [];
         const failedPaths: number[][] = [];
@@ -111,8 +105,8 @@ export class SimulationService {
             // this is a single iteration . . . .
             let failYear = -1;
             let failed = false;
-            this.CFG.initialRegime = Math.random() < 0.5 ? 'bull' : 'bear';;
-            const path = this.generateRegimeSwitchingReturns(retirementDuration);
+
+            const path = this.generateRegimeSwitchingReturns(retirementDuration, bull, bear);
             paths.push(path);
             let netWorth = mcStartingValue;
             for (let y = 0; y < retirementDuration; y++) {
@@ -188,7 +182,6 @@ export class SimulationService {
 
     }
 
-
     analyzeYearResults(arr: number[]) {
 
         const x = arr.slice().filter(v => typeof v === 'number' && !isNaN(v)).sort((a, b) => a - b);
@@ -215,10 +208,7 @@ export class SimulationService {
 
     }
 
-
-
     performLinearAnalysis(params: ParameterMap) {
-
 
         const result: YearlyData[] = [];
 
@@ -270,7 +260,9 @@ export class SimulationService {
         coreExpense: number,
         healthCare: number,
         captialEvent: number,
-        pension: number
+        pension: number,
+        growthPlus: number,
+        growthMinus: number
     } {
 
         const age = params.age;
@@ -331,7 +323,7 @@ export class SimulationService {
 
         // SOCIAL SECURITY
         const ssPayment = year + age >= ssAge ? ((1 + cola) ** year) * socialSecurity : 0;
-       
+
         const pension = (year + age >= params.pensionAge) ? ((1 + cola) ** year) * params.pensionAmount : 0;
 
         // HEALTHCARE
@@ -385,51 +377,38 @@ export class SimulationService {
             coreExpense: coreExpenses,
             flexExpnse: flexExpenses,
             captialEvent: captialEventAmt,
-            pension
+            pension,
+            growthPlus: currentNetWorth * (ror + 1.015),
+            growthMinus: currentNetWorth * (ror + 0.985)
         };
 
     }
 
-    generateRegimeSwitchingReturns(years: number) {
+    generateRegimeSwitchingReturns(years: number, bear: regime, bull: regime) {
         const out = new Array(years);
-        let regime = this.CFG.initialRegime; // 'bull' or 'bear'
-
-        // calculate muLog
-        
+        let regime: "bull" | "bear" = "bull"; // 'bull' or 'bear'
 
         for (let t = 0; t < years; t++) {
             // draw return based on current regime
-            const params = (regime === 'bull') ? this.CFG.bull : this.CFG.bear;
-            const muLog = Math.log(1 + params.mu) - 0.5 * params.sigma * params.sigma; 
+            const params = (regime === 'bull') ? bull : bear;
+            const muLog = Math.log(1 + params.mu) - 0.5 * params.sigma * params.sigma;
 
-
-            // let r = this.drawLogNormalReturn(params.mu, params.sigma);
-            // if (this.CFG.clamp) {
-            //     r = Math.max(this.CFG.clamp.min, Math.min(this.CFG.clamp.max, r));
-            // }
-    
-            const logR = this.generateLogReturn(muLog, params.sigma); // log return
-            const ror = Math.exp(logR) - 1;                    // arithmetic return, always > -1
+            const logR = this.generateLogReturn(muLog, params.sigma);
+            const ror = Math.exp(logR) - 1;
             out[t] = ror;
 
             // transition to next regime
-            regime = this.nextRegime(regime);
+            const u = Math.random();
+            if (regime === 'bull') {
+                regime = (u < bull.continues) ? 'bull' : 'bear';
+            } else {
+                regime = (u < bear.continues) ? 'bear' : 'bull';
+            }
         }
 
         return out;
     }
 
-    /***********************
-     * Markov transition
-     ***********************/
-    nextRegime(current: string) {
-        const u = Math.random();
-        if (current === 'bull') {
-            return (u < this.CFG.pBB) ? 'bull' : 'bear';
-        } else {
-            return (u < this.CFG.pRR) ? 'bear' : 'bull';
-        }
-    }
 
     /***********************
      * Lognormal yearly return
