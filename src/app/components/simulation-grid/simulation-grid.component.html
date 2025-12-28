@@ -1,6 +1,7 @@
 <div class="grid-container" [class.detail-view-active]="detailViewColumnId">
   <div class="toolbar">
-    <h2 style="color:aliceblue">Retire-O-Tron</h2>
+    <h2 style="color:aliceblue">Retire-O-Tron </h2>  
+    <span (click)="showHelpModal = true" style="cursor: pointer;"><i class="material-icons">help</i></span>
     <div class="button-group">
       <button (click)="runSimulations()" class="btn btn-primary">Run Simulations</button>
       <button (click)="copyColumn1ToAll()" class="btn btn-info">Copy Column 1 to All</button>
@@ -8,6 +9,21 @@
       <input type="text" [value]="columnDefs.length - 1" readonly class="column-count-input" title="Number of columns">
       <button (click)="addColumn()" class="btn btn-secondary">+</button>
       <button (click)="resetData()" class="btn btn-danger">Reset Data</button>
+      
+      <div class="toggle-switch">
+        <button 
+          class="toggle-option" 
+          [class.active]="inflationMode === 'real'"
+          (click)="toggleInflationMode('real')">
+          Real
+        </button>
+        <button 
+          class="toggle-option" 
+          [class.active]="inflationMode === 'nominal'"
+          (click)="toggleInflationMode('nominal')">
+          Nominal
+        </button>
+      </div>
     </div>
   </div>
 
@@ -119,6 +135,16 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help Modal -->
+  <div *ngIf="showHelpModal" class="modal-overlay" (click)="showHelpModal = false">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <div class="modal-content">
+        <button class="modal-close" (click)="showHelpModal = false">&times;</button>
+        <h1>WTF?</h1>
       </div>
     </div>
   </div>

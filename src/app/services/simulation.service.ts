@@ -22,7 +22,7 @@ export class SimulationService {
     private readonly CFG = {
         initialRegime: "bull",
         // Regime model parameters (example values; adjust)
-        bull: { mu: 0.095, sigma: 0.15 },
+        bull: { mu: 0.105, sigma: 0.15 },
         bear: { mu: -0.03, sigma: 0.22 },
 
         // Markov transition probabilities
@@ -30,23 +30,27 @@ export class SimulationService {
         // pRR: P(bear next year | bear this year)
         pBB: 0.85,
         pRR: 0.30,
-
-        // Optional: clamp extreme returns (helps avoid nonsensical blow-ups)
-        clamp: { min: -0.60, max: 0.80 } // -60% to +80%
     }
 
     /**
      * Runs a simulation for a given column configuration
-     * This is a placeholder - replace with your actual simulation logic
      */
-    runSimulation(column: SimulationColumn): Observable<SimulationResult> {
+    runSimulation(column: SimulationColumn, mode: "real" | "nominal"): 
+        Observable<SimulationResult> {
+
         const params = this.mapParameters(column);
+
+        if(mode == 'real') {
+            params.rateOfReturn -= params.inflation;
+            params.retirementRateOfReturn -= params.inflation;
+            params.cola = 0;
+            params.inflation = 0;
+        }
 
         const laResult = this.performLinearAnalysis(params);
 
-        this.CFG.initialRegime = Math.random() < 0.5 ? 'bull' : 'bear';
-
         const mcResult = this.performMonteCarloAnalysis(params);
+
         const result: SimulationResult = {
             columnId: column.id,
             result1: laResult.pop()?.value as number,
@@ -56,7 +60,6 @@ export class SimulationService {
             failYears: this.binFailYears(params.retired, params.longevityAge, mcResult)
         };
 
-        // Simulate 1-2 second delay
         return of(result);
     }
 
@@ -78,16 +81,6 @@ export class SimulationService {
         return result;
 
     }
-
-    /**
-     * Runs simulations for all columns in parallel
-     */
-    runAllSimulations(columns: SimulationColumn[]): Observable<SimulationResult[]> {
-        // This will be implemented to run simulations in parallel
-        // Placeholder for now
-        return of([]);
-    }
-
 
     performMonteCarloAnalysis(params: ParameterMap): MonteCarloResult {
 
@@ -130,20 +123,18 @@ export class SimulationService {
 
                 if (netWorth < 0) {
                     failed = true;
-                    if(failYear == -1) failYear = y;
+                    if (failYear == -1) failYear = y;
                 }
 
             }
 
-            if(failed) 
-                {
-                    fail++;
-                    failedPaths.push(path);
-                } else
-                {
-                    succeededPaths.push(path);
-                }
-            
+            if (failed) {
+                fail++;
+                failedPaths.push(path);
+            } else {
+                succeededPaths.push(path);
+            }
+
 
             results.push({ netWorth: netWorth, failYear: failYear });
 
@@ -161,42 +152,41 @@ export class SimulationService {
     }
 
     binReturnsDistribution(paths: number[][]): { bins: number[], labels: string[] } {
-    const minValue = -0.6;
-    const maxValue = 0.8;
-    const binWidth = 0.05; // Adjust for more/fewer bins
-    const numBins = Math.ceil((maxValue - minValue) / binWidth);
-    
-    const bins = new Array(numBins).fill(0);
-    const labels: string[] = [];
-    
-    // Create labels
-    for (let i = 0; i < numBins; i++) {
-        const lower = minValue + (i * binWidth);
-        const upper = lower + binWidth;
-        labels.push(`${(lower * 100).toFixed(0)}%`); // to ${(upper * 100).toFixed(0)}%`);
-    }
+        const minValue = -0.6;
+        const maxValue = 0.8;
+        const binWidth = 0.05; // Adjust for more/fewer bins
+        const numBins = Math.ceil((maxValue - minValue) / binWidth);
 
-    console.log(labels);
-    
-    // Flatten and count
-    paths.forEach(path => {
-        path.forEach(value => {
-            // Determine which bin this value belongs to
-            const binIndex = Math.floor((value - minValue) / binWidth);
-            
-            // Handle edge cases
-            if (binIndex >= 0 && binIndex < numBins) {
-                bins[binIndex]++;
-            } else if (value === maxValue) {
-                // Put max value in last bin
-                bins[numBins - 1]++;
-            }
+        const bins = new Array(numBins).fill(0);
+        const labels: string[] = [];
+
+        // Create labels
+        for (let i = 0; i < numBins; i++) {
+            const lower = minValue + (i * binWidth);
+            const upper = lower + binWidth;
+            labels.push(`${(lower * 100).toFixed(0)}%`); // to ${(upper * 100).toFixed(0)}%`);
+        }
+
+
+        // Flatten and count
+        paths.forEach(path => {
+            path.forEach(value => {
+                // Determine which bin this value belongs to
+                const binIndex = Math.floor((value - minValue) / binWidth);
+
+                // Handle edge cases
+                if (binIndex >= 0 && binIndex < numBins) {
+                    bins[binIndex]++;
+                } else if (value === maxValue) {
+                    // Put max value in last bin
+                    bins[numBins - 1]++;
+                }
+            });
         });
-    });
-    
-    return { bins, labels };
 
-}
+        return { bins, labels };
+
+    }
 
 
     analyzeYearResults(arr: number[]) {
@@ -257,7 +247,8 @@ export class SimulationService {
                 coreExpense: answer.coreExpense,
                 flexExpense: answer.flexExpnse,
                 healthCare: answer.healthCare,
-                capitalEvent: answer.captialEvent
+                capitalEvent: answer.captialEvent,
+                pension: answer.pension
 
             });
 
@@ -278,7 +269,8 @@ export class SimulationService {
         flexExpnse: number,
         coreExpense: number,
         healthCare: number,
-        captialEvent: number
+        captialEvent: number,
+        pension: number
     } {
 
         const age = params.age;
@@ -337,8 +329,10 @@ export class SimulationService {
         // POST-RETIREMENT WORK / INCOME
         if ((year + age >= retirementAge) && (year + age <= retirementAge + semiRetiredDuration)) currentNetWorth += (semiRetiredIncome * (1 + inflation) ** year);
 
-        // SOCIAL SECURITY -- TODO: PARAMETERIZE AGE
+        // SOCIAL SECURITY
         const ssPayment = year + age >= ssAge ? ((1 + cola) ** year) * socialSecurity : 0;
+       
+        const pension = (year + age >= params.pensionAge) ? ((1 + cola) ** year) * params.pensionAmount : 0;
 
         // HEALTHCARE
         healthCare = ((year + age) < 65) && ((year + age) >= retirementAge) ? (((1 + inflation) ** year) * healthCare) : 0;
@@ -372,7 +366,7 @@ export class SimulationService {
 
         expenses = coreExpenses + flexExpenses;
 
-        const widthdrawal = (ssPayment - healthCare - expenses) * (1 + taxRate);
+        const widthdrawal = (ssPayment - healthCare - expenses + pension) * (1 + taxRate);
 
         const c2 = `${year + age}: ${widthdrawal} from ${currentNetWorth} with ror: ${ror} -> ${currentNetWorth * (1 + ror)}`;
 
@@ -380,10 +374,6 @@ export class SimulationService {
         const growth = currentNetWorth * ror;
         let result = currentNetWorth + growth;
         const comment = `for year ${year} at ${age}: starting value: \$${Math.round(startValue)} widthdrawal: ${widthdrawal}health: ${healthCare} ss: ${ssPayment}expenses: ${expenses}ending value: ${currentNetWorth}`;
-
-        if (path.length == 0) {
-            // console.log(comment);
-        }
 
         return {
             result: result,
@@ -394,7 +384,8 @@ export class SimulationService {
             healthCare,
             coreExpense: coreExpenses,
             flexExpnse: flexExpenses,
-            captialEvent: captialEventAmt
+            captialEvent: captialEventAmt,
+            pension
         };
 
     }
@@ -403,16 +394,23 @@ export class SimulationService {
         const out = new Array(years);
         let regime = this.CFG.initialRegime; // 'bull' or 'bear'
 
+        // calculate muLog
+        
+
         for (let t = 0; t < years; t++) {
             // draw return based on current regime
             const params = (regime === 'bull') ? this.CFG.bull : this.CFG.bear;
-            let r = this.drawLogNormalReturn(params.mu, params.sigma);
+            const muLog = Math.log(1 + params.mu) - 0.5 * params.sigma * params.sigma; 
 
-            // optional clamp
-            if (this.CFG.clamp) {
-                r = Math.max(this.CFG.clamp.min, Math.min(this.CFG.clamp.max, r));
-            }
-            out[t] = r;
+
+            // let r = this.drawLogNormalReturn(params.mu, params.sigma);
+            // if (this.CFG.clamp) {
+            //     r = Math.max(this.CFG.clamp.min, Math.min(this.CFG.clamp.max, r));
+            // }
+    
+            const logR = this.generateLogReturn(muLog, params.sigma); // log return
+            const ror = Math.exp(logR) - 1;                    // arithmetic return, always > -1
+            out[t] = ror;
 
             // transition to next regime
             regime = this.nextRegime(regime);
@@ -453,5 +451,20 @@ export class SimulationService {
         return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
     }
 
+    generateLogReturn(muLog: number, sigma: number): number {
+        // muLog = average log return
+        // sigma = volatility
 
+        const shock = this.randn_();              // bell-curve random number
+        const logReturn = muLog + sigma * shock;
+
+        return logReturn;
+    }
+
+    applyLogReturn(value: number, muLog: number, sigma: number) {
+        const logR = this.generateLogReturn(muLog, sigma);
+        const growthFactor = Math.exp(logR); // always > 0
+
+        return value * growthFactor;
+    }
 }

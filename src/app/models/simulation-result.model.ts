@@ -9,6 +9,7 @@ export interface YearlyData {
   flexExpense: number;
   healthCare: number;
   capitalEvent: number;
+  pension: number;
 }
 
 export interface SimulationResult {

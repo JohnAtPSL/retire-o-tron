@@ -64,4 +64,7 @@ export interface ParameterMap {
   applyGuardrails: boolean;
   applySpendingReduction: boolean;
   inflation: number;
+  pensionAmount: number;
+  pensionAge: number;
+  
 }

@@ -69,6 +69,8 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
   results: Map<string, SimulationResult> = new Map();
   expandedGroups: Map<string, boolean> = new Map();
   detailViewColumnId: string | null = null;
+  inflationMode: 'real' | 'nominal' = 'real';
+  showHelpModal = false;
 
   constructor(
     private parameterRegistry: ParameterRegistryService,
@@ -93,6 +95,11 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
   private initializeExpandedGroups(): void {
     const groups = this.parameterRegistry.getGroups();
     groups.forEach(group => this.expandedGroups.set(group, true));
+  }
+
+  toggleInflationMode(mode: "real" | "nominal"): void {
+    this.inflationMode = mode;
+    this.runSimulations();
   }
 
   private initializeColumns(): void {
@@ -228,6 +235,10 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
             return '-';
           } else if (row.rowType === 'parameter' && row.parameterId) {
             const paramValue = col.parameters.find(p => p.parameterId === row.parameterId);
+            // For boolean parameters, convert to Yes/No for the dropdown editor
+            if (row.parameterDef?.type === ParameterType.BOOLEAN) {
+              return paramValue?.value ? 'Yes' : 'No';
+            }
             // For percentage parameters, show as whole numbers for editing (0.06 -> 6)
             if (row.parameterDef?.format === ParameterFormat.PERCENTAGE && typeof paramValue?.value === 'number') {
               return paramValue.value * 100;
@@ -237,8 +248,13 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
           return '';
         },
         valueFormatter: (params) => {
+          if (!params.data) return params.value;
           const row = params.data as GridRow;
           if (row.rowType === 'parameter' && row.parameterId && params.value !== undefined && params.value !== null) {
+            // For boolean parameters, value is already 'Yes'/'No' from valueGetter
+            if (row.parameterDef?.type === ParameterType.BOOLEAN) {
+              return params.value;
+            }
             // For percentage parameters, the value from valueGetter is already multiplied by 100
             // So we just need to add the % symbol, not multiply again
             if (row.parameterDef?.format === ParameterFormat.PERCENTAGE) {
@@ -472,7 +488,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
         isCalculating: true
       });
 
-      return this.simulationService.runSimulation(col);
+      return this.simulationService.runSimulation(col, this.inflationMode);
     });
 
     this.gridApi?.refreshCells({ force: true });
