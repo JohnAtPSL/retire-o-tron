@@ -12,6 +12,7 @@ import { ParameterDefinition, ParameterType, ParameterFormat } from '../../model
 import { SimulationColumn } from '../../models/simulation-column.model';
 import { SimulationResult } from '../../models/simulation-result.model';
 import { HelpModalComponent } from '../help-modal/help-modal.component';
+import { ColumnHeaderComponent } from '../column-header/column-header.component';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -38,16 +39,18 @@ interface GridRow {
 export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('portfolioChart') portfolioChartCanvas?: ElementRef<HTMLCanvasElement>;
   @ViewChild('expensesChart') expensesChartCanvas?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('growthChart') growthChartCanvas?: ElementRef<HTMLCanvasElement>;
   @ViewChild('failYearsChart') failYearsChartCanvas?: ElementRef<HTMLCanvasElement>;
   @ViewChild('mcStatsChart') mcStatsChartCanvas?: ElementRef<HTMLCanvasElement>;
   @ViewChild('returnsDistChart') returnsDistChartCanvas?: ElementRef<HTMLCanvasElement>;
-  @ViewChild('failedPathsChart') failedPathsChartCanvas?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('simPathsChart') simPathsChartCanvas?: ElementRef<HTMLCanvasElement>;
   private chart?: Chart;
   private expensesChart?: Chart;
+  private growthChart?: Chart;
   private failYearsChart?: Chart;
   private mcStatsChart?: Chart;
   private returnsDistChart?: Chart;
-  private failedPathsChart?: Chart;
+  private simPathsChart?: Chart;
 
   private gridApi!: GridApi;
   private destroy$ = new Subject<void>();
@@ -69,7 +72,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
   columns: SimulationColumn[] = [];
   results: Map<string, SimulationResult> = new Map();
   expandedGroups: Map<string, boolean> = new Map();
-  detailViewColumnId: string | null = null;
+  selectedColumnIds: string[] = [];
   inflationMode: 'real' | 'nominal' = 'real';
   showHelpModal = false;
 
@@ -90,6 +93,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
   ngAfterViewInit(): void {
     this.renderChart();
     this.renderExpensesChart();
+    this.renderGrowthChart();
     this.renderFailYearsChart();
   }
 
@@ -108,6 +112,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
 
     if (savedColumns && savedColumns.length > 0) {
       this.columns = savedColumns;
+      this.runSimulations();
     } else {
       // Create 5 default columns
       const parameters = this.parameterRegistry.getParameters();
@@ -122,6 +127,11 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
         });
       }
       this.storageService.saveColumns(this.columns);
+    }
+    
+    // Select the first column by default
+    if (this.columns.length > 0) {
+      this.selectedColumnIds = [this.columns[0].id];
     }
   }
 
@@ -160,15 +170,18 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
 
     // Add column for each scenario
     this.columns.forEach(col => {
-      const isDetailView = this.detailViewColumnId === col.id;
-      const shouldHide = this.detailViewColumnId && this.detailViewColumnId !== col.id;
-      const detailButtonIcon = isDetailView ? '✕' : '🔍';
+      const isSelected = this.selectedColumnIds.includes(col.id);
 
       this.columnDefs.push({
-        headerName: `${col.name} ${detailButtonIcon}`,
-        hide: shouldHide || false,
-        headerClass: isDetailView ? 'header-detail-active' : 'header-with-detail-btn',
+        headerName: col.name,
+        headerClass: isSelected ? 'header-selected' : 'header-with-select-btn',
         field: col.id,
+        headerComponent: ColumnHeaderComponent,
+        headerComponentParams: {
+          columnId: col.id,
+          isSelected: isSelected,
+          onHeaderClick: (columnId: string) => this.selectColumn(columnId)
+        },
         editable: (params) => params.data.rowType === 'parameter',
         cellEditorSelector: (params) => {
           const row = params.data as GridRow;
@@ -374,22 +387,10 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     }
   }
 
-  toggleDetailView(columnId: string): void {
-    if (this.detailViewColumnId === columnId) {
-      // Close detail view
-      this.detailViewColumnId = null;
-      this.destroyChart();
-      this.destroyExpensesChart();
-      this.destroyFailYearsChart();
-      this.destroyMcStatsChart();
-      this.destroyReturnsDistChart();
-      this.destroyFailedPathsChart();
-    } else {
-      // Open detail view for this column
-      this.detailViewColumnId = columnId;
-    }
+  selectColumn(columnId: string): void {
+    this.selectedColumnIds.push(columnId);
 
-    // Rebuild column definitions to show/hide columns
+    // Update column headers to show selected state
     this.setupColumnDefinitions();
 
     if (this.gridApi) {
@@ -401,21 +402,22 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     setTimeout(() => {
       this.renderChart();
       this.renderExpensesChart();
+      this.renderGrowthChart();
       this.renderFailYearsChart();
       this.renderMcStatsChart();
       this.renderReturnsDistChart();
-      this.renderFailedPathsChart();
+      this.renderSimPathsChart();
     }, 100);
   }
 
   getSelectedColumnDetails(): SimulationColumn | null {
-    if (!this.detailViewColumnId) return null;
-    return this.columns.find(c => c.id === this.detailViewColumnId) || null;
+    if (this.selectedColumnIds.length === 0) return null;
+    return this.columns.find(c => c.id === this.selectedColumnIds[0]) || null;
   }
 
   getDetailViewResult(): SimulationResult | undefined {
-    if (!this.detailViewColumnId) return undefined;
-    return this.results.get(this.detailViewColumnId);
+    if (this.selectedColumnIds.length === 0) return undefined;
+    return this.results.get(this.selectedColumnIds[0]);
   }
 
   private formatValue(value: any, paramDef?: ParameterDefinition): string {
@@ -467,18 +469,6 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     this.gridApi.sizeColumnsToFit();
   }
 
-  onColumnHeaderClicked(event: any): void {
-    console.log('Column header clicked:', event); // Debug log
-
-    const colId = event.column?.colId || event.column?.colDef?.field;
-    console.log('Column ID:', colId); // Debug log
-
-    // Only toggle detail view for scenario columns (not the label column)
-    if (colId && colId.startsWith('col')) {
-      this.toggleDetailView(colId);
-    }
-  }
-
   runSimulations(): void {
     const simulations = this.columns.map(col => {
       // Mark as calculating
@@ -502,15 +492,16 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
         });
         this.gridApi?.refreshCells({ force: true });
 
-        // Update charts if detail view is open
-        if (this.detailViewColumnId) {
+        // Update charts if a column is selected
+        if (this.selectedColumnIds.length > 0) {
           setTimeout(() => {
             this.renderChart();
             this.renderExpensesChart();
+            this.renderGrowthChart();
             this.renderFailYearsChart();
             this.renderMcStatsChart();
             this.renderReturnsDistChart();
-            this.renderFailedPathsChart();
+            this.renderSimPathsChart();
           }, 100);
         }
       },
@@ -608,7 +599,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   private renderChart(): void {
-    if (!this.portfolioChartCanvas || !this.detailViewColumnId) {
+    if (!this.portfolioChartCanvas || this.selectedColumnIds.length === 0) {
       return;
     }
 
@@ -718,7 +709,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   private renderExpensesChart(): void {
-    if (!this.expensesChartCanvas || !this.detailViewColumnId) {
+    if (!this.expensesChartCanvas || this.selectedColumnIds.length === 0) {
       return;
     }
 
@@ -810,8 +801,112 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     this.expensesChart = new Chart(ctx, config);
   }
 
+  private renderGrowthChart(): void {
+    if (!this.growthChartCanvas || this.selectedColumnIds.length === 0) {
+      return;
+    }
+
+    this.destroyGrowthChart();
+
+    const result = this.getDetailViewResult();
+    if (!result?.linearResult || result.linearResult.length === 0) {
+      return;
+    }
+
+    const ctx = this.growthChartCanvas.nativeElement.getContext('2d');
+    if (!ctx) return;
+
+    const column = this.getSelectedColumnDetails();
+    const ageParam = column?.parameters.find(p => p.parameterId === 'age');
+    const startingAge = ageParam ? Number(ageParam.value) : 0;
+
+    const years = result.linearResult.length;
+    const labels = Array.from({ length: years }, (_, i) => `${startingAge + i}`);
+
+    const config: ChartConfiguration = {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Portfolio Value',
+            data: result.linearResult.map(d => d.value),
+            borderColor: 'rgba(25, 118, 210, .7)',
+            backgroundColor: 'rgba(25, 118, 210, 0.1)',
+            borderWidth: 3,
+            fill: false,
+            tension: 0.1
+          },
+          {
+            label: 'Low Performance (Model Rates -1%)',
+            data: result.laLow!.map(d => d.value),
+            borderColor: 'rgba(210, 25, 25, .7)',
+            backgroundColor: 'rgba(25, 118, 210, 0.1)',
+            borderWidth: 3,
+            fill: false,
+            tension: 0.1
+          },
+           {
+            label: 'High Performance (Model Rates +1%)',
+            data: result.laHigh!.map(d => d.value),
+            borderColor: 'rgba(21, 221, 34, 0.7)',
+            backgroundColor: 'rgba(25, 118, 210, 0.1)',
+            borderWidth: 3,
+            fill: false,
+            tension: 0.1
+          },
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top'
+          },
+          title: {
+            display: true,
+            text: 'Portfolio Value with Growth Bands',
+            font: { size: 16 }
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            callbacks: {
+              label: (context) => {
+                const value = context.parsed.y;
+                return value !== null ? `${context.dataset.label}: ${this.formatCurrency(value)}` : 'N/A';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: 'Age'
+            }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: (value) => this.formatCurrency(value as number)
+            },
+            title: {
+              display: true,
+              text: 'Portfolio Value'
+            }
+          }
+        }
+      }
+    };
+
+    this.growthChart = new Chart(ctx, config);
+  }
+
   private renderFailYearsChart(): void {
-    if (!this.failYearsChartCanvas || !this.detailViewColumnId) {
+    if (!this.failYearsChartCanvas || this.selectedColumnIds.length === 0) {
       return;
     }
 
@@ -912,6 +1007,13 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     }
   }
 
+  private destroyGrowthChart(): void {
+    if (this.growthChart) {
+      this.growthChart.destroy();
+      this.growthChart = undefined;
+    }
+  }
+
   private destroyFailYearsChart(): void {
     if (this.failYearsChart) {
       this.failYearsChart.destroy();
@@ -920,7 +1022,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   private renderMcStatsChart(): void {
-    if (!this.mcStatsChartCanvas || !this.detailViewColumnId) {
+    if (!this.mcStatsChartCanvas || this.selectedColumnIds.length === 0) {
       return;
     }
 
@@ -1058,7 +1160,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   private renderReturnsDistChart(): void {
-    if (!this.returnsDistChartCanvas || !this.detailViewColumnId) {
+    if (!this.returnsDistChartCanvas || this.selectedColumnIds.length === 0) {
       return;
     }
 
@@ -1161,19 +1263,19 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     }
   }
 
-  private renderFailedPathsChart(): void {
-    if (!this.failedPathsChartCanvas || !this.detailViewColumnId) {
+  private renderSimPathsChart(): void {
+    if (!this.simPathsChartCanvas || this.selectedColumnIds.length === 0) {
       return;
     }
 
-    this.destroyFailedPathsChart();
+    this.destroySimPathsChart();
 
     const result = this.getDetailViewResult();
     if (!result?.mcResult?.failedPaths || result.mcResult.failedPaths.length === 0) {
       return;
     }
 
-    const ctx = this.failedPathsChartCanvas.nativeElement.getContext('2d');
+    const ctx = this.simPathsChartCanvas.nativeElement.getContext('2d');
     if (!ctx) return;
 
     // Get starting age from column parameters
@@ -1277,23 +1379,24 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
       }
     };
 
-    this.failedPathsChart = new Chart(ctx, config);
+    this.simPathsChart = new Chart(ctx, config);
   }
 
-  private destroyFailedPathsChart(): void {
-    if (this.failedPathsChart) {
-      this.failedPathsChart.destroy();
-      this.failedPathsChart = undefined;
+  private destroySimPathsChart(): void {
+    if (this.simPathsChart) {
+      this.simPathsChart.destroy();
+      this.simPathsChart = undefined;
     }
   }
 
   ngOnDestroy(): void {
     this.destroyChart();
     this.destroyExpensesChart();
+    this.destroyGrowthChart();
     this.destroyFailYearsChart();
     this.destroyMcStatsChart();
     this.destroyReturnsDistChart();
-    this.destroyFailedPathsChart();
+    this.destroySimPathsChart();
     this.destroy$.next();
     this.destroy$.complete();
   }

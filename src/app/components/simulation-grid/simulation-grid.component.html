@@ -1,6 +1,6 @@
-<div class="grid-container" [class.detail-view-active]="detailViewColumnId">
+<div class="grid-container">
   <div class="toolbar">
-    <h2 style="color:aliceblue">Retire-O-Tron </h2>  
+    <h2 style="color:aliceblue">Retire-O-Tron </h2>
     <span (click)="showHelpModal = true" style="cursor: pointer;"><i class="material-icons">help</i></span>
     <div class="button-group">
       <button (click)="runSimulations()" class="btn btn-primary">Run Simulations</button>
@@ -9,17 +9,12 @@
       <input type="text" [value]="columnDefs.length - 1" readonly class="column-count-input" title="Number of columns">
       <button (click)="addColumn()" class="btn btn-secondary">+</button>
       <button (click)="resetData()" class="btn btn-danger">Reset Data</button>
-      
+
       <div class="toggle-switch">
-        <button 
-          class="toggle-option" 
-          [class.active]="inflationMode === 'real'"
-          (click)="toggleInflationMode('real')">
+        <button class="toggle-option" [class.active]="inflationMode === 'real'" (click)="toggleInflationMode('real')">
           Real
         </button>
-        <button 
-          class="toggle-option" 
-          [class.active]="inflationMode === 'nominal'"
+        <button class="toggle-option" [class.active]="inflationMode === 'nominal'"
           (click)="toggleInflationMode('nominal')">
           Nominal
         </button>
@@ -28,38 +23,27 @@
   </div>
 
   <div class="content-area">
-    <ag-grid-angular
-      [class.grid-with-detail]="detailViewColumnId"
-      [columnDefs]="columnDefs"
-      [rowData]="rowData"
-      [pinnedTopRowData]="pinnedTopRowData"
-      [defaultColDef]="defaultColDef"
-      [rowHeight]="rowHeight"
-      (gridReady)="onGridReady($event)"
-      (columnHeaderClicked)="onColumnHeaderClicked($event)"
-      [singleClickEdit]="true"
-      [stopEditingWhenCellsLoseFocus]="true"
-      [suppressRowClickSelection]="true"
-      [enterNavigatesVertically]="true"
-      [enterNavigatesVerticallyAfterEdit]="true"
-    />
+    <div class="grid-section">
+      <ag-grid-angular [columnDefs]="columnDefs" [rowData]="rowData" [pinnedTopRowData]="pinnedTopRowData"
+        [defaultColDef]="defaultColDef" [rowHeight]="rowHeight" (gridReady)="onGridReady($event)"
+        [singleClickEdit]="true"
+        [stopEditingWhenCellsLoseFocus]="true" [suppressRowClickSelection]="true" [enterNavigatesVertically]="true"
+        [enterNavigatesVerticallyAfterEdit]="true" />
+    </div>
 
-    <div *ngIf="detailViewColumnId" class="detail-panel">
-      <div class="detail-header">
-        <h3>{{ getSelectedColumnDetails()?.name }} - Details</h3>
-        <button class="close-btn" (click)="toggleDetailView(detailViewColumnId)" title="Close detail view">✕</button>
-      </div>
+    <div class="detail-panel">
+      {{ selectedColumnIds }}
+      <ng-container *ngIf="selectedColumnIds.length > 0; else noSelection">
+        <div class="detail-header">
+          <h3>{{ getSelectedColumnDetails()?.name }} - Details</h3>
+        </div>
 
-  <div class="detail-section">
+        <div class="detail-section">
           <h4>Simulation Results</h4>
           <div *ngIf="getDetailViewResult() as result" class="results-grid">
             <div class="result-item">
               <span class="result-label">Final Portfolio Value:</span>
               <span class="result-value">{{ formatCurrency(result.result1) }}</span>
-            </div>
-            <div class="result-item">
-              <span class="result-label">Success Rate:</span>
-              <span class="result-value">{{ formatPercentage(result.result2) }}</span>
             </div>
             <div class="result-item" *ngIf="result.isCalculating">
               <span class="calculating">Calculating...</span>
@@ -73,32 +57,48 @@
           </div>
         </div>
 
-
-
-      
-
-         <div class="detail-section">
+        <div class="detail-section">
           <h4>Linear Analysis</h4>
-         
-      <div class="detail-content">
-        <div class="detail-section">
-          <h4>Portfolio Value Over Time</h4>
-          <div class="chart-container">
-            <canvas #portfolioChart></canvas>
+
+          <div class="detail-section">
+            <h4>Portfolio Value Over Time</h4>
+            <div class="chart-container">
+              <canvas #portfolioChart></canvas>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <h4>Annual Expenses Breakdown</h4>
+            <div class="chart-container">
+              <canvas #expensesChart></canvas>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <h4>Growth Analysis</h4>
+            <div class="chart-container">
+              <canvas #growthChart></canvas>
+            </div>
           </div>
         </div>
 
         <div class="detail-section">
-          <h4>Annual Expenses Breakdown</h4>
-          <div class="chart-container">
-            <canvas #expensesChart></canvas>
-          </div>
-        </div>
-        </div>
-
-         <div class="detail-section">
           <h4>Monte Carlo Analysis</h4>
-          
+          <div *ngIf="getDetailViewResult() as result" class="results-grid">
+            <div class="result-item">
+              <span class="result-label">Success Rate:</span>
+              <span class="result-value">{{ formatPercentage(result.result2) }}</span>
+            </div>
+            <div class="result-item" *ngIf="result.isCalculating">
+              <span class="calculating">Calculating...</span>
+            </div>
+            <div class="result-item" *ngIf="result.error">
+              <span class="error">{{ result.error }}</span>
+            </div>
+          </div>
+</div>
+
+         
           <div class="detail-section">
             <h4>Portfolio Value Distribution Over Time</h4>
             <div class="chart-container">
@@ -107,9 +107,9 @@
           </div>
 
           <div class="detail-section">
-            <h4>Failed Simulation Paths</h4>
+            <h4>Simulation Paths</h4>
             <div class="chart-container">
-              <canvas #failedPathsChart></canvas>
+              <canvas #simPathsChart></canvas>
             </div>
           </div>
 
@@ -126,9 +126,9 @@
               <canvas #failYearsChart></canvas>
             </div>
           </div>
-        </div>
+        
 
-        <div class="detail-section">
+        <!-- <div class="detail-section">
           <h4>Parameters Summary</h4>
           <div class="parameters-list">
             <div *ngFor="let param of getSelectedColumnDetails()?.parameters" class="param-item">
@@ -136,8 +136,14 @@
               <span class="param-value">{{ formatParameterValue(param.parameterId, param.value) }}</span>
             </div>
           </div>
+        </div> -->
+      </ng-container>
+
+      <ng-template #noSelection>
+        <div class="no-selection">
+          <p>Click on a column header to view details</p>
         </div>
-      </div>
+      </ng-template>
     </div>
   </div>
 

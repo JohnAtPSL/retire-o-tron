@@ -36,7 +36,25 @@ export class SimulationService {
             params.inflation = 0;
         }
 
+        console.log(JSON.stringify(params));
+
+        const lowLinearRate = params.rateOfReturn - .01;
+        const highLinearRate = params.rateOfReturn + .01;
+        const lowRetRate = params.retirementRateOfReturn - .01;
+        const highRetRate = params.retirementRateOfReturn + .01;
+
         const laResult = this.performLinearAnalysis(params);
+
+        console.log("do low");
+        params.rateOfReturn = lowLinearRate;
+        params.retirementRateOfReturn = lowRetRate;
+        const lowResult = this.performLinearAnalysis(params);
+
+        console.log("do high");
+        params.rateOfReturn = highLinearRate;
+        params.retirementRateOfReturn = highRetRate;
+        const highResult = this.performLinearAnalysis(params);
+
 
         const mcResult = this.performMonteCarloAnalysis(params);
 
@@ -45,6 +63,8 @@ export class SimulationService {
             result1: laResult.pop()?.value as number,
             result2: mcResult.success,
             linearResult: laResult,
+            laHigh: highResult,
+            laLow: lowResult,
             mcResult: mcResult,
             failYears: this.binFailYears(params.retired, params.longevityAge, mcResult)
         };
@@ -260,9 +280,7 @@ export class SimulationService {
         coreExpense: number,
         healthCare: number,
         captialEvent: number,
-        pension: number,
-        growthPlus: number,
-        growthMinus: number
+        pension: number
     } {
 
         const age = params.age;
@@ -273,7 +291,10 @@ export class SimulationService {
             ror = path[year];
         } else {
             ror = age + year < retirementAge ? params.rateOfReturn : params.retirementRateOfReturn;
+            console.log(`age: ${age}: linear ror: ${ror}`);
         }
+
+        
 
         const startValue = currentNetWorth;
 
@@ -377,9 +398,8 @@ export class SimulationService {
             coreExpense: coreExpenses,
             flexExpnse: flexExpenses,
             captialEvent: captialEventAmt,
-            pension,
-            growthPlus: currentNetWorth * (ror + 1.015),
-            growthMinus: currentNetWorth * (ror + 0.985)
+            pension
+              
         };
 
     }

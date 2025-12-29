@@ -19,6 +19,8 @@ export interface SimulationResult {
   isCalculating?: boolean;
   error?: string;
   linearResult?: YearlyData[];
+  laHigh?: YearlyData[];
+  laLow?: YearlyData[];
   mcResult?: MonteCarloResult;
   failYears?: number[];
 }
