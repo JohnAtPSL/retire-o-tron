@@ -13,6 +13,7 @@ import { SimulationColumn } from '../../models/simulation-column.model';
 import { SimulationResult } from '../../models/simulation-result.model';
 import { HelpModalComponent } from '../help-modal/help-modal.component';
 import { ColumnHeaderComponent } from '../column-header/column-header.component';
+import { ComparisonChartComponent } from '../comparison-chart/comparison-chart.component';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -32,7 +33,7 @@ interface GridRow {
 @Component({
   selector: 'app-simulation-grid',
   standalone: true,
-  imports: [CommonModule, AgGridAngular, HelpModalComponent],
+  imports: [CommonModule, AgGridAngular, HelpModalComponent, ComparisonChartComponent],
   templateUrl: './simulation-grid.component.html',
   styleUrls: ['./simulation-grid.component.scss']
 })
@@ -95,6 +96,9 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     this.renderExpensesChart();
     this.renderGrowthChart();
     this.renderFailYearsChart();
+    this.renderMcStatsChart();
+    this.renderSimPathsChart();
+    this.renderReturnsDistChart();
   }
 
   private initializeExpandedGroups(): void {
@@ -388,7 +392,15 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   selectColumn(columnId: string): void {
-    this.selectedColumnIds.push(columnId);
+    
+    const index = this.selectedColumnIds.indexOf(columnId);
+      if (index > -1) {
+        this.selectedColumnIds.splice(index, 1);
+      } else {
+        this.selectedColumnIds.push(columnId);
+      }
+
+    console.log(this.selectedColumnIds);
 
     // Update column headers to show selected state
     this.setupColumnDefinitions();
@@ -410,14 +422,24 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     }, 100);
   }
 
-  getSelectedColumnDetails(): SimulationColumn | null {
-    if (this.selectedColumnIds.length === 0) return null;
-    return this.columns.find(c => c.id === this.selectedColumnIds[0]) || null;
+  getSelectedColumnDetails(): SimulationColumn | undefined {
+    if (this.selectedColumnIds.length === 0) return undefined;
+    return this.columns.find(c => c.id === this.selectedColumnIds[0]) || undefined;
+  }
+
+  getSecondSelectedColumn(): SimulationColumn | undefined {
+    if (this.selectedColumnIds.length === 0) return undefined;
+    return this.columns.find(c => c.id === this.selectedColumnIds[1]) || undefined;
   }
 
   getDetailViewResult(): SimulationResult | undefined {
     if (this.selectedColumnIds.length === 0) return undefined;
     return this.results.get(this.selectedColumnIds[0]);
+  }
+
+  getSecondViewResult(): SimulationResult | undefined {
+    if (this.selectedColumnIds.length !== 2) return undefined;
+    return this.results.get(this.selectedColumnIds[1]);
   }
 
   private formatValue(value: any, paramDef?: ParameterDefinition): string {
@@ -979,7 +1001,8 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
             beginAtZero: true,
             stacked: true,
             ticks: {
-              stepSize: 1
+              stepSize: 5,
+              maxTicksLimit: 1000
             },
             title: {
               display: true,

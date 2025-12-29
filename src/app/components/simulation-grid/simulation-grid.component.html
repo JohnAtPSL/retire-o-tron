@@ -32,8 +32,7 @@
     </div>
 
     <div class="detail-panel">
-      {{ selectedColumnIds }}
-      <ng-container *ngIf="selectedColumnIds.length > 0; else noSelection">
+      <ng-container *ngIf="selectedColumnIds.length == 1">
         <div class="detail-header">
           <h3>{{ getSelectedColumnDetails()?.name }} - Details</h3>
         </div>
@@ -96,7 +95,8 @@
               <span class="error">{{ result.error }}</span>
             </div>
           </div>
-</div>
+        
+        </div>
 
          
           <div class="detail-section">
@@ -127,23 +127,34 @@
             </div>
           </div>
         
-
-        <!-- <div class="detail-section">
-          <h4>Parameters Summary</h4>
-          <div class="parameters-list">
-            <div *ngFor="let param of getSelectedColumnDetails()?.parameters" class="param-item">
-              <span class="param-label">{{ getParameterLabel(param.parameterId) }}:</span>
-              <span class="param-value">{{ formatParameterValue(param.parameterId, param.value) }}</span>
+      </ng-container>
+    
+      <ng-container *ngIf="selectedColumnIds.length == 2">
+        <div class="detail-section">
+          <h3>Scenario Compare</h3>
+            <div class="chart-container">
+              <app-comparison-chart 
+                [result1]="getDetailViewResult()"
+                [result2]="getSecondViewResult()"
+                [column1]="getSelectedColumnDetails()"
+                [column2]="getSecondSelectedColumn()"
+                
+                ></app-comparison-chart>
             </div>
-          </div>
-        </div> -->
+        </div>
       </ng-container>
 
-      <ng-template #noSelection>
-        <div class="no-selection">
-          <p>Click on a column header to view details</p>
+      <ng-container *ngIf="selectedColumnIds.length > 2">
+         <div class="no-selection">
+          <p>Scenario Compare only supports two scenarios at the current time.</p>
         </div>
-      </ng-template>
+      </ng-container>
+
+      <ng-container *ngIf="selectedColumnIds.length == 0">
+        <div class="no-selection">
+          <p>Please select a scenario using the checkbox in the column header to view details</p>
+        </div>
+      </ng-container>
     </div>
   </div>
 
