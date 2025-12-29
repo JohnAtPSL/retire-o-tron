@@ -14,6 +14,7 @@ import { SimulationResult } from '../../models/simulation-result.model';
 import { HelpModalComponent } from '../help-modal/help-modal.component';
 import { ColumnHeaderComponent } from '../column-header/column-header.component';
 import { ComparisonChartComponent } from '../comparison-chart/comparison-chart.component';
+import { MCSuccessComparison } from '../comparison-chart/mc-success-comparison';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -33,7 +34,7 @@ interface GridRow {
 @Component({
   selector: 'app-simulation-grid',
   standalone: true,
-  imports: [CommonModule, AgGridAngular, HelpModalComponent, ComparisonChartComponent],
+  imports: [CommonModule, AgGridAngular, HelpModalComponent, ComparisonChartComponent, MCSuccessComparison],
   templateUrl: './simulation-grid.component.html',
   styleUrls: ['./simulation-grid.component.scss']
 })

@@ -5,14 +5,14 @@ import { SimulationResult } from '../../models/simulation-result.model';
 import { SimulationColumn } from '../../models/simulation-column.model';
 
 @Component({
-  selector: 'app-comparison-chart',
+  selector: 'mc-success-comparison',
   standalone: true,
   imports: [CommonModule],
   styleUrls: ['./comparison-chart.component.scss'],
   template: `
     <div class="comparison-chart-container">
       <div class="chart-header">
-        <h4>Linear Analysis Portfolio Value</h4>
+        <h4>Monte Carlo Cumulative Yearly Success Comparison</h4>
         <div class="scenario-labels" *ngIf="column1 && column2">
           <span class="scenario-label scenario-1">{{ column1.name }}</span>
           <span class="scenario-label scenario-2">{{ column2.name }}</span>
@@ -27,7 +27,7 @@ import { SimulationColumn } from '../../models/simulation-column.model';
     </div>
   `,
 })
-export class ComparisonChartComponent implements OnInit, OnChanges, AfterViewInit, OnDestroy {
+export class MCSuccessComparison implements OnInit, OnChanges, AfterViewInit, OnDestroy {
   @ViewChild('comparisonChart') chartCanvas?: ElementRef<HTMLCanvasElement>;
   @Input() result1?: SimulationResult;
   @Input() result2?: SimulationResult;
@@ -82,7 +82,7 @@ export class ComparisonChartComponent implements OnInit, OnChanges, AfterViewIni
         datasets: [
           {
             label: this.column1?.name,
-            data: this.result1!.linearResult!.map(d => d.value),
+            data: this.result1!.failYears!.map((value) => value/2500),
             borderColor: 'rgba(25, 118, 210, 1)',
             backgroundColor: 'rgba(25, 118, 210, 0.1)',
             borderWidth: 2,
@@ -90,7 +90,7 @@ export class ComparisonChartComponent implements OnInit, OnChanges, AfterViewIni
           },
           {
             label: this.column2?.name,
-            data: this.result2!.linearResult!.map(d => d.value),
+            data: this.result2!.failYears!.map((value) => value/2500),
             borderColor: 'rgba(76, 175, 80, 1)',
             backgroundColor: 'rgba(76, 175, 80, 0.1)',
             borderWidth: 2,
@@ -118,9 +118,14 @@ export class ComparisonChartComponent implements OnInit, OnChanges, AfterViewIni
             grid: { color: '#444' }
           },
           y: {
-            ticks: { color: '#e0e0e0' },
+            ticks: { color: '#e0e0e0',
+              callback: function(value) {
+                return ((Number.parseFloat(value as string) * 100) + '%');
+              }
+             },
             grid: { color: '#444' },
             beginAtZero: true
+            
           }
         }
       }

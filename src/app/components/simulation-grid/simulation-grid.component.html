@@ -131,7 +131,11 @@
     
       <ng-container *ngIf="selectedColumnIds.length == 2">
         <div class="detail-section">
+          <div class="detail-header">
           <h3>Scenario Compare</h3>
+
+          </div>
+
             <div class="chart-container">
               <app-comparison-chart 
                 [result1]="getDetailViewResult()"
@@ -141,6 +145,15 @@
                 
                 ></app-comparison-chart>
             </div>
+        </div>
+
+        <div class="chart-container">
+          <mc-success-comparison
+                [result1]="getDetailViewResult()"
+                [result2]="getSecondViewResult()"
+                [column1]="getSelectedColumnDetails()"
+                [column2]="getSecondSelectedColumn()"
+          ></mc-success-comparison>
         </div>
       </ng-container>
 
