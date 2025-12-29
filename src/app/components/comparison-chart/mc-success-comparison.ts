@@ -74,6 +74,8 @@ export class MCSuccessComparison implements OnInit, OnChanges, AfterViewInit, On
     const years = this.result1.linearResult!.length;
     const labels = Array.from({ length: years }, (_, i) => `${startingAge + i}`);
 
+    console.log(this.result1);
+
     // Placeholder chart configuration
     const config: ChartConfiguration = {
       type: 'line',

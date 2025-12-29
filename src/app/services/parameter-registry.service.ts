@@ -12,20 +12,22 @@ export class ParameterRegistryService {
             label: 'Age',
             type: ParameterType.NUMBER,
             group: 'Basics',
-            defaultValue: 52,
+            defaultValue: 50,
             min: 18,
             max: 100,
-            step: 1
+            step: 1,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'retired',
             label: 'Retirement Age',
             type: ParameterType.NUMBER,
             group: 'Basics',
-            defaultValue: 56,
+            defaultValue: 65,
             min: 18,
             max: 100,
-            step: 1
+            step: 1,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'currentPortfolio',
@@ -33,10 +35,11 @@ export class ParameterRegistryService {
             type: ParameterType.NUMBER,
             group: 'Finance',
             format: ParameterFormat.CURRENCY,
-            defaultValue: 2665000,
+            defaultValue: 1000000,
             min: 0,
             max: 100000000,
-            step: 100
+            step: 100,
+            helpText: 'blarrg!!!'
         },
         // Finance Group
         // {
@@ -61,7 +64,8 @@ export class ParameterRegistryService {
             defaultValue: 4000,
             min: 0,
             max: 50000,
-            step: 1000
+            step: 1000,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'flexExpenses',
@@ -72,7 +76,8 @@ export class ParameterRegistryService {
             defaultValue: 4000,
             min: 0,
             max: 500000,
-            step: 1000
+            step: 1000,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'healthInsurance',
@@ -83,7 +88,8 @@ export class ParameterRegistryService {
             defaultValue: 500,
             min: 0,
             max: 100000,
-            step: 1000
+            step: 1000,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'capitalEvent1',
@@ -94,7 +100,8 @@ export class ParameterRegistryService {
             defaultValue: 0,
             min: -10000000,
             max: 10000000,
-            step: 1000
+            step: 1000,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'semiRetiredIncome',
@@ -103,9 +110,9 @@ export class ParameterRegistryService {
             group: 'Semi Retirement',
             format: ParameterFormat.CURRENCY,
             defaultValue: 0,
-            min: 0,
-            max: 500000,
-            step: 1000
+            min: -10000000,
+            max: 10000000,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'socialSecurityAmount',
@@ -113,10 +120,11 @@ export class ParameterRegistryService {
             type: ParameterType.NUMBER,
             group: 'Fixed Benefit',
             format: ParameterFormat.CURRENCY,
-            defaultValue: 48000,
+            defaultValue: 24000,
             min: 0,
             max: 100000,
-            step: 100
+            step: 100,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'socialSecurityAge',
@@ -126,7 +134,8 @@ export class ParameterRegistryService {
             defaultValue: 70,
             min: 62,
             max: 70,
-            step: 1
+            step: 1,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'pensionAmount',
@@ -137,7 +146,8 @@ export class ParameterRegistryService {
             defaultValue: 0,
             min: 0,
             max: 100000,
-            step: 100
+            step: 1,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'pensionAge',
@@ -147,7 +157,8 @@ export class ParameterRegistryService {
             defaultValue: 60,
             min: 50,
             max: 70,
-            step: 1
+            step: 1,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'rateOfReturn',
@@ -158,7 +169,8 @@ export class ParameterRegistryService {
             defaultValue: 0.06,
             min: 0,
             max: 0.20,
-            step: 0.001
+            step: 0.001,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'retirementRateOfReturn',
@@ -169,7 +181,8 @@ export class ParameterRegistryService {
             defaultValue: 0.05,
             min: 0,
             max: 0.20,
-            step: 0.001
+            step: 0.001,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'inflation',
@@ -180,7 +193,8 @@ export class ParameterRegistryService {
             defaultValue: 0.0325,
             min: 0,
             max: 0.20,
-            step: 0.0001
+            step: 0.0001,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'cola',
@@ -191,7 +205,8 @@ export class ParameterRegistryService {
             defaultValue: 0.025,
             min: 0,
             max: 0.05,
-            step: 0.0001
+            step: 0.0001,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'taxRate',
@@ -202,7 +217,8 @@ export class ParameterRegistryService {
             defaultValue: 0.11,
             min: 0,
             max: 0.60,
-            step: 0.0001
+            step: 0.0001,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'capitalEvent1Age',
@@ -212,7 +228,8 @@ export class ParameterRegistryService {
             defaultValue: 65,
             min: 18,
             max: 100,
-            step: 1
+            step: 1,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'capitalEvent2',
@@ -223,7 +240,8 @@ export class ParameterRegistryService {
             defaultValue: 0,
             min: -10000000,
             max: 10000000,
-            step: 1000
+            step: 1000,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'capitalEvent2Age',
@@ -233,7 +251,8 @@ export class ParameterRegistryService {
             defaultValue: 65,
             min: 18,
             max: 100,
-            step: 1
+            step: 1,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'capitalEvent3',
@@ -244,7 +263,8 @@ export class ParameterRegistryService {
             defaultValue: 0,
             min: -10000000,
             max: 10000000,
-            step: 1000
+            step: 1000,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'capitalEvent3Age',
@@ -254,7 +274,8 @@ export class ParameterRegistryService {
             defaultValue: 65,
             min: 18,
             max: 100,
-            step: 1
+            step: 1,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'semiRetirementDuration',
@@ -264,7 +285,8 @@ export class ParameterRegistryService {
             defaultValue: 0,
             min: 0,
             max: 50,
-            step: 1
+            step: 1,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'yearlySpendingReduction',
@@ -275,7 +297,8 @@ export class ParameterRegistryService {
             defaultValue: .01,
             min: 0,
             max: 0.99,
-            step: 0.001
+            step: 0.001,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'bullRate',
@@ -286,7 +309,8 @@ export class ParameterRegistryService {
             defaultValue: .095,
             min: 0,
             max: 0.99,
-            step: 0.001
+            step: 0.001,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'bearRate',
@@ -297,7 +321,8 @@ export class ParameterRegistryService {
             defaultValue: -.020,
             min: -0.99,
             max: 0.99,
-            step: 0.001
+            step: 0.001,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'longevityAge',
@@ -307,7 +332,8 @@ export class ParameterRegistryService {
             defaultValue: 88,
             min: 18,
             max: 120,
-            step: 1
+            step: 1,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'currentSavingsRate',
@@ -318,7 +344,8 @@ export class ParameterRegistryService {
             defaultValue: 20000,
             min: 0,
             max: 10000000,
-            step: 1
+            step: 1,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'targetWithdrawalRate',
@@ -329,7 +356,8 @@ export class ParameterRegistryService {
             defaultValue: 0.04,
             min: 0,
             max: 0.20,
-            step: 0.001
+            step: 0.001,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'upperBound',
@@ -340,7 +368,8 @@ export class ParameterRegistryService {
             defaultValue: 1.20,
             min: 0,
             max: 2.0,
-            step: 0.01
+            step: 0.01,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'lowerBound',
@@ -351,23 +380,17 @@ export class ParameterRegistryService {
             defaultValue: 0.80,
             min: 0,
             max: 2.0,
-            step: 0.01
+            step: 0.01,
+            helpText: 'blarrg!!!'
         },
         {
             id: 'applyGuardrails',
             label: 'Apply Guardrails',
             type: ParameterType.BOOLEAN,
             group: 'Modeling',
-            defaultValue: true
+            defaultValue: true,
+            helpText: 'blarrg!!!'
         },
-        {
-            id: 'applySpendingReduction',
-            label: 'Apply Spending Reduction',
-            type: ParameterType.BOOLEAN,
-            group: 'Modeling',
-            defaultValue: true
-        },
-
     ];
 
     getParameters(): ParameterDefinition[] {

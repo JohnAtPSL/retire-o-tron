@@ -33,6 +33,7 @@ export interface ParameterDefinition {
   max?: number;
   step?: number;
   hidden?: boolean;
+  helpText?: string;
 }
 
 export interface ParameterValue {

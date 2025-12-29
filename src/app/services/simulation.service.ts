@@ -66,15 +66,15 @@ export class SimulationService {
             laHigh: highResult,
             laLow: lowResult,
             mcResult: mcResult,
-            failYears: this.binFailYears(params.retired, params.longevityAge, mcResult)
+            failYears: this.binFailYears(params.age, params.longevityAge, mcResult)
         };
 
         return of(result);
     }
 
-    binFailYears(retirementTarget: number, longevityAge: number, mcResults: MonteCarloResult): number[] {
+    binFailYears(age: number, longevityAge: number, mcResults: MonteCarloResult): number[] {
 
-        const duration = longevityAge - retirementTarget;
+        const duration = longevityAge - age;
         const result = new Array(duration).fill(0);
 
         let success = 2500;   // number of iterations
@@ -109,9 +109,11 @@ export class SimulationService {
         const netWorth = params.currentPortfolio;
         const targetAge = params.longevityAge;
 
-        const retirementDuration = targetAge - age;
+        const duration = (targetAge - age) + 1;
 
-        const yearlyValues: number[][] = Array.from({ length: retirementDuration }, () =>
+        console.log(duration);
+
+        const yearlyValues: number[][] = Array.from({ length: duration }, () =>
             new Array(iterations).fill(0)
         );
 
@@ -126,10 +128,10 @@ export class SimulationService {
             let failYear = -1;
             let failed = false;
 
-            const path = this.generateRegimeSwitchingReturns(retirementDuration, bull, bear);
+            const path = this.generateRegimeSwitchingReturns(duration, bull, bear);
             paths.push(path);
             let netWorth = mcStartingValue;
-            for (let y = 0; y < retirementDuration; y++) {
+            for (let y = 0; y < duration; y++) {
 
                 netWorth = this.calculateValueForYear(y, params, netWorth, path).result;
 
@@ -239,12 +241,12 @@ export class SimulationService {
         const retiredROR = params.retirementRateOfReturn;
         const retirementAge = params.retired;
 
-        const retirementDuration = targetAge - age;
+        const duration = (targetAge - age) + 1;
 
         const path: number[] = [];
 
         let workingNetWorth = netWorth;
-        for (let y = 0; y < retirementDuration + 1; y++) {
+        for (let y = 0; y < duration; y++) {
             const answer = this.calculateValueForYear(y, params, workingNetWorth, path);
 
             result.push({

@@ -13,6 +13,7 @@ import { SimulationColumn } from '../../models/simulation-column.model';
 import { SimulationResult } from '../../models/simulation-result.model';
 import { HelpModalComponent } from '../help-modal/help-modal.component';
 import { ColumnHeaderComponent } from '../column-header/column-header.component';
+import { RowHeaderComponent } from '../row-header/row-header.component';
 import { ComparisonChartComponent } from '../comparison-chart/comparison-chart.component';
 import { MCSuccessComparison } from '../comparison-chart/mc-success-comparison';
 
@@ -77,6 +78,9 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
   selectedColumnIds: string[] = [];
   inflationMode: 'real' | 'nominal' = 'real';
   showHelpModal = false;
+  showParameterHelpModal = false;
+  parameterHelpTitle = '';
+  parameterHelpText = '';
 
   constructor(
     private parameterRegistry: ParameterRegistryService,
@@ -148,23 +152,14 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
         field: 'label',
         pinned: 'left',
         width: 180,
-        cellRenderer: (params: any) => {
-          const row = params.data as GridRow;
-          if (row.rowType === 'group' && row.group) {
-            const isExpanded = this.expandedGroups.get(row.group);
-            const icon = isExpanded ? '▼' : '▶';
-            return `<span style="cursor: pointer;">${icon} ${params.value}</span>`;
-          }
-          return params.value;
-        },
-        cellStyle: (params) => {
-          if (params.data.rowType === 'result') {
-            return { fontWeight: 'bold' } as any;
-          } else if (params.data.rowType === 'group') {
-            return { fontWeight: 'bold', fontStyle: 'italic', cursor: 'pointer' } as any;
-          }
-          return { paddingLeft: '20px' } as any;
-        },
+        cellRenderer: RowHeaderComponent,
+        cellRendererParams: (params: any) => ({
+          rowType: params.data?.rowType,
+          group: params.data?.group,
+          isExpanded: params.data?.group ? this.expandedGroups.get(params.data.group) : undefined,
+          onGroupToggle: (group: string) => this.toggleGroup(group),
+          onShowHelp: (title: string, helpText: string) => this.showParameterHelp(title, helpText)
+        }),
         onCellClicked: (params) => {
           if (params.data.rowType === 'group' && params.data.group) {
             this.toggleGroup(params.data.group);
@@ -392,6 +387,16 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     }
   }
 
+  showParameterHelp(title: string, helpText: string): void {
+    this.parameterHelpTitle = title;
+    this.parameterHelpText = helpText;
+    this.showParameterHelpModal = true;
+  }
+
+  closeParameterHelp(): void {
+    this.showParameterHelpModal = false;
+  }
+
   selectColumn(columnId: string): void {
     
     const index = this.selectedColumnIds.indexOf(columnId);
@@ -492,31 +497,39 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     this.gridApi.sizeColumnsToFit();
   }
 
-  runSimulations(): void {
-    const simulations = this.columns.map(col => {
-      // Mark as calculating
-      this.results.set(col.id, {
-        columnId: col.id,
-        result1: 0,
-        result2: 0,
-        isCalculating: true
-      });
+  onCellValueChanged(event: any): void {
+    // Check if the edited cell was a parameter (not a result row)
+    if (event.data?.rowType === 'parameter') {
+      // Get the column ID from the event
+      const colId = event.column.getColId();
+      const column = this.columns.find(col => col.id === colId);
+      
+      if (column) {
+        // Run simulation only for the edited column
+        this.runSingleSimulation(column);
+      }
+    }
+  }
 
-      return this.simulationService.runSimulation(col, this.inflationMode);
+  private runSingleSimulation(column: SimulationColumn): void {
+    // Mark as calculating
+    this.results.set(column.id, {
+      columnId: column.id,
+      result1: 0,
+      result2: 0,
+      isCalculating: true
     });
 
     this.gridApi?.refreshCells({ force: true });
 
-    forkJoin(simulations).subscribe({
-      next: (results) => {
-        results.forEach(result => {
-          this.results.set(result.columnId, result);
-          console.log(this.results);
-        });
+    // Run the simulation
+    this.simulationService.runSimulation(column, this.inflationMode).subscribe({
+      next: (result) => {
+        this.results.set(result.columnId, result);
         this.gridApi?.refreshCells({ force: true });
 
-        // Update charts if a column is selected
-        if (this.selectedColumnIds.length > 0) {
+        // Update charts if this column is selected
+        if (this.selectedColumnIds.includes(column.id)) {
           setTimeout(() => {
             this.renderChart();
             this.renderExpensesChart();
@@ -530,7 +543,22 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
       },
       error: (error) => {
         console.error('Simulation error:', error);
+        this.results.set(column.id, {
+          columnId: column.id,
+          result1: 0,
+          result2: 0,
+          isCalculating: false,
+          error: error.message
+        });
+        this.gridApi?.refreshCells({ force: true });
       }
+    });
+  }
+
+  runSimulations(): void {
+    // Run all simulations by calling runSingleSimulation for each column
+    this.columns.forEach(col => {
+      this.runSingleSimulation(col);
     });
   }
 
@@ -947,6 +975,8 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     const labels = result.failYears.map((_, index) => `${index + 1}`);
 
     const fails = result.failYears.map((value, index) => 2500 - value);
+
+    console.log(result);
 
     const config: ChartConfiguration = {
       type: 'bar',
