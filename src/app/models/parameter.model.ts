@@ -1,7 +1,8 @@
 export enum ParameterType {
   NUMBER = 'number',
   BOOLEAN = 'boolean',
-  DROPDOWN = 'dropdown'
+  DROPDOWN = 'dropdown',
+  STRING = 'string'
 }
 
 export enum ParameterFormat {

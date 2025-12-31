@@ -111,6 +111,17 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     groups.forEach(group => this.expandedGroups.set(group, true));
   }
 
+  private getColumnDisplayName(column: SimulationColumn, index: number): string {
+    const scenarioNameParam = column.parameters.find(p => p.parameterId === 'secenarioName');
+    const scenarioName = scenarioNameParam?.value;
+    
+    if (scenarioName && typeof scenarioName === 'string' && scenarioName.trim() !== '') {
+      return scenarioName;
+    }
+    
+    return `Scenario ${index + 1}`;
+  }
+
   toggleInflationMode(mode: "real" | "nominal"): void {
     this.inflationMode = mode;
     this.runSimulations();
@@ -121,6 +132,10 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
 
     if (savedColumns && savedColumns.length > 0) {
       this.columns = savedColumns;
+      // Update column names based on scenarioName parameter
+      this.columns.forEach((col, index) => {
+        col.name = this.getColumnDisplayName(col, index);
+      });
       this.runSimulations();
     } else {
       // Create 5 default columns
@@ -137,7 +152,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
       }
       this.storageService.saveColumns(this.columns);
     }
-    
+
     // Select the first column by default
     if (this.columns.length > 0) {
       this.selectedColumnIds = [this.columns[0].id];
@@ -169,11 +184,13 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     ];
 
     // Add column for each scenario
-    this.columns.forEach(col => {
+    this.columns.forEach((col, index) => {
       const isSelected = this.selectedColumnIds.includes(col.id);
+      const displayName = this.getColumnDisplayName(col, index);
+      col.name = displayName; // Update the column name
 
       this.columnDefs.push({
-        headerName: col.name,
+        headerName: displayName,
         headerClass: isSelected ? 'header-selected' : 'header-with-select-btn',
         field: col.id,
         headerComponent: ColumnHeaderComponent,
@@ -203,6 +220,10 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
                 params: {
                   values: row.parameterDef.dropdownOptions?.map(opt => opt.value) || []
                 }
+              };
+            case ParameterType.STRING:
+              return {
+                component: 'agTextCellEditor'
               };
             case ParameterType.NUMBER:
               const precision = this.getPrecisionFromStep(row.parameterDef.step);
@@ -242,9 +263,13 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
               return 'Error';
             }
             if (result) {
-              return row.parameterId === 'result1'
-                ? this.formatCurrency(result.result1)
-                : this.formatPercentage(result.result2);
+              if (row.parameterId === 'result1') {
+                return this.formatCurrency(result.result1);
+              } else if (row.parameterId === 'result2') {
+                return this.formatPercentage(result.result2);
+              } else if (row.parameterId === 'flex') {
+                return this.formatPercentage(result.flex * 100);
+              }
             }
             return '-';
           } else if (row.rowType === 'parameter' && row.parameterId) {
@@ -268,6 +293,10 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
             // For boolean parameters, value is already 'Yes'/'No' from valueGetter
             if (row.parameterDef?.type === ParameterType.BOOLEAN) {
               return params.value;
+            }
+            // For string parameters, just return the string value (including empty strings)
+            if (row.parameterDef?.type === ParameterType.STRING) {
+              return String(params.value);
             }
             // For percentage parameters, the value from valueGetter is already multiplied by 100
             // So we just need to add the % symbol, not multiply again
@@ -303,9 +332,17 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     const paramValue = column.parameters.find(p => p.parameterId === row.parameterId);
     if (!paramValue) return false;
 
-    // Don't update if value is empty/null - keep the old value
-    if (params.newValue === null || params.newValue === undefined || params.newValue === '') {
-      return false;
+    // For STRING parameters, allow empty strings
+    // For other types, don't update if value is null or undefined
+    if (row.parameterDef?.type !== ParameterType.STRING) {
+      if (params.newValue === null || params.newValue === undefined || params.newValue === '') {
+        return false;
+      }
+    } else {
+      // For STRING type, only reject null/undefined, not empty strings
+      if (params.newValue === null || params.newValue === undefined) {
+        return false;
+      }
     }
 
     // Convert Yes/No strings to boolean for boolean parameters
@@ -316,6 +353,20 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
       paramValue.value = typeof params.newValue === 'number' ? params.newValue / 100 : params.newValue;
     } else {
       paramValue.value = params.newValue;
+    }
+
+    // If scenarioName changed, update the column header
+    if (row.parameterId === 'secenarioName') {
+      const columnIndex = this.columns.findIndex(c => c.id === colId);
+      if (columnIndex !== -1) {
+        const displayName = this.getColumnDisplayName(column, columnIndex);
+        column.name = displayName;
+        this.setupColumnDefinitions();
+        if (this.gridApi) {
+          this.gridApi.setGridOption('columnDefs', this.columnDefs);
+          this.gridApi.refreshHeader();
+        }
+      }
     }
 
     this.dataChanged$.next();
@@ -342,12 +393,25 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
       {
         rowType: 'result',
         parameterId: 'result1',
-        label: 'Linear End Value'
+        label: 'Linear End Value',
+        helpText: `This is the amount of money you will have once you reach your Longevity Age based on 
+        a Linear Analysis.`
       },
       {
         rowType: 'result',
         parameterId: 'result2',
-        label: 'Success Rate'
+        label: 'Success Rate',
+        helpText: `This is the likelyhood that you will reach your Longevity Age before your portfolio value
+        reaches zero.`
+      },
+      {
+        rowType: 'result',
+        parameterId: 'flex',
+        label: 'Spending Flex',
+        helpText: `If you have <b>Apply Guardrails</b> set to Yes, when Monte Carlo simulations are run, if your
+        widthdrawals are getting too big, they will be scaled back a bit for that year, this number represents the 
+        overall reduction in spending required to get to the success percentage above.</br></br> If you turn off <b>Apply Guardrails</b>
+        below, then this number should drop to 0% and your Success Rate will drop.`
       }
     ];
 
@@ -398,13 +462,13 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   selectColumn(columnId: string): void {
-    
+
     const index = this.selectedColumnIds.indexOf(columnId);
-      if (index > -1) {
-        this.selectedColumnIds.splice(index, 1);
-      } else {
-        this.selectedColumnIds.push(columnId);
-      }
+    if (index > -1) {
+      this.selectedColumnIds.splice(index, 1);
+    } else {
+      this.selectedColumnIds.push(columnId);
+    }
 
     console.log(this.selectedColumnIds);
 
@@ -456,6 +520,8 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     } else if (paramDef?.type === ParameterType.DROPDOWN) {
       const option = paramDef.dropdownOptions?.find(opt => opt.value === value);
       return option?.label || String(value);
+    } else if (paramDef?.type === ParameterType.STRING) {
+      return String(value);
     } else if (paramDef?.type === ParameterType.NUMBER) {
       if (paramDef.format === ParameterFormat.PERCENTAGE) {
         return typeof value === 'number' ? `${(value * 100).toFixed(2)}%` : String(value);
@@ -503,7 +569,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
       // Get the column ID from the event
       const colId = event.column.getColId();
       const column = this.columns.find(col => col.id === colId);
-      
+
       if (column) {
         // Run simulation only for the edited column
         this.runSingleSimulation(column);
@@ -517,6 +583,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
       columnId: column.id,
       result1: 0,
       result2: 0,
+      flex: 0,
       isCalculating: true
     });
 
@@ -547,6 +614,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
           columnId: column.id,
           result1: 0,
           result2: 0,
+          flex: 0,
           isCalculating: false,
           error: error.message
         });
@@ -674,43 +742,43 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     const config: ChartConfiguration = {
       type: 'bar',
       data: {
-        labels:  labels,
+        labels: labels,
         datasets: [
           {
-            label: 'Starting Value',
-            data: result.linearResult.map(d => d.startValue),
+            label: 'Portfolio Value',
+            data: result.linearResult.map(d => d.value),
             backgroundColor: 'rgba(76, 175, 80, 0.7)',
             borderColor: 'rgba(76, 175, 80, 1)',
             borderWidth: 1
           },
-          {
-            label: 'Growth',
-            data: result.linearResult.map(d => d.growth),
-            backgroundColor: 'rgba(25, 118, 210, 0.7)',
-            borderColor: 'rgba(25, 118, 210, 1)',
-            borderWidth: 1
-          },
-          {
-            label: 'Social Security',
-            data: result.linearResult.map(d => d.ssPayment),
-            backgroundColor: 'rgba(255, 152, 0, 0.7)',
-            borderColor: 'rgba(255, 152, 0, 1)',
-            borderWidth: 1
-          },
-          {
-            label: 'New Savings',
-            data: result.linearResult.map(d => d.newSavings),
-            backgroundColor: 'rgba(156, 39, 176, 0.7)',
-            borderColor: 'rgba(156, 39, 176, 1)',
-            borderWidth: 1
-          },
-          {
-            label: 'Capital Event',
-            data: result.linearResult.map(d => d.capitalEvent),
-            backgroundColor: 'rgba(233, 30, 99, 0.7)',
-            borderColor: 'rgba(233, 30, 99, 1)',
-            borderWidth: 1
-          }
+          // {
+          //   label: 'Growth',
+          //   data: result.linearResult.map(d => d.growth),
+          //   backgroundColor: 'rgba(25, 118, 210, 0.7)',
+          //   borderColor: 'rgba(25, 118, 210, 1)',
+          //   borderWidth: 1
+          // },
+          // {
+          //   label: 'Social Security',
+          //   data: result.linearResult.map(d => d.ssPayment),
+          //   backgroundColor: 'rgba(255, 152, 0, 0.7)',
+          //   borderColor: 'rgba(255, 152, 0, 1)',
+          //   borderWidth: 1
+          // },
+          // {
+          //   label: 'New Savings',
+          //   data: result.linearResult.map(d => d.newSavings),
+          //   backgroundColor: 'rgba(156, 39, 176, 0.7)',
+          //   borderColor: 'rgba(156, 39, 176, 1)',
+          //   borderWidth: 1
+          // },
+          // {
+          //   label: 'Capital Event',
+          //   data: result.linearResult.map(d => d.capitalEvent),
+          //   backgroundColor: 'rgba(233, 30, 99, 0.7)',
+          //   borderColor: 'rgba(233, 30, 99, 1)',
+          //   borderWidth: 1
+          // }
         ]
       },
       options: {
@@ -723,7 +791,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
           },
           title: {
             display: true,
-            text: 'Portfolio Value Breakdown by Year',
+            text: 'Portfolio Value by Year',
             font: { size: 16 }
           },
           tooltip: {
@@ -777,7 +845,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     const config: ChartConfiguration = {
       type: 'bar',
       data: {
-        labels: result.linearResult.map(d => d.year.toString()),
+        labels: result.linearResult.map(d => `${d.year.toString()}`),
         datasets: [
           {
             label: 'Core Expenses',
@@ -816,7 +884,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
             font: { size: 16 }
           },
           tooltip: {
-            mode: 'index',
+            mode: 'x',
             intersect: false,
             callbacks: {
               label: (context) => {
@@ -897,7 +965,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
             fill: false,
             tension: 0.1
           },
-           {
+          {
             label: 'High Performance (Model Rates +1%)',
             data: result.laHigh!.map(d => d.value),
             borderColor: 'rgba(21, 221, 34, 0.7)',
@@ -1237,32 +1305,32 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
       data: {
         labels: labels,
         datasets: [
-        {
-          showLine: false,
-          label: 'Frequency',
-          data: bins,
-          backgroundColor: 'rgba(54, 162, 235, 0.7)',
-          borderColor: 'rgba(54, 162, 235, 1)',
-          borderWidth: 1,
-          pointRadius: 0
-        },
-        {
-          label: 'Failed Paths',
-          data: failed.bins,
-          backgroundColor: 'rgba(239, 56, 32, 0.38)',
-          borderColor: 'rgba(231, 25, 18, 1)',
-          borderWidth: 1,
-          pointRadius: 0
-        },
-        {
-          label: 'Successful Paths',
-          data: succeeded.bins,
-          backgroundColor: 'rgba(14, 232, 72, 0.58)',
-          borderColor: 'rgba(21, 207, 33, 1)',
-          borderWidth: 1,
-          pointRadius: 0
-        }
-      ]
+          {
+            showLine: false,
+            label: 'Frequency',
+            data: bins,
+            backgroundColor: 'rgba(54, 162, 235, 0.7)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1,
+            pointRadius: 0
+          },
+          {
+            label: 'Failed Paths',
+            data: failed.bins,
+            backgroundColor: 'rgba(239, 56, 32, 0.38)',
+            borderColor: 'rgba(231, 25, 18, 1)',
+            borderWidth: 1,
+            pointRadius: 0
+          },
+          {
+            label: 'Successful Paths',
+            data: succeeded.bins,
+            backgroundColor: 'rgba(14, 232, 72, 0.58)',
+            borderColor: 'rgba(21, 207, 33, 1)',
+            borderWidth: 1,
+            pointRadius: 0
+          }
+        ]
       },
       options: {
         responsive: true,
@@ -1345,7 +1413,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     const maxPathsToShow = 50;
     const pathsToShow = result.mcResult.failedPaths.slice(0, maxPathsToShow);
     const morePaths = result.mcResult.succeededPaths.slice(0, maxPathsToShow);
-    
+
     const datasets = pathsToShow.map((path, index) => ({
       label: `Failed Path ${index + 1}`,
       data: path,
@@ -1424,7 +1492,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
               }
             },
             ticks: {
-              callback: function(value) {
+              callback: function (value) {
                 return (value as number).toFixed(3);
               }
             }

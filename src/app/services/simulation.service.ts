@@ -36,8 +36,6 @@ export class SimulationService {
             params.inflation = 0;
         }
 
-        console.log(JSON.stringify(params));
-
         const lowLinearRate = params.rateOfReturn - .01;
         const highLinearRate = params.rateOfReturn + .01;
         const lowRetRate = params.retirementRateOfReturn - .01;
@@ -45,12 +43,10 @@ export class SimulationService {
 
         const laResult = this.performLinearAnalysis(params);
 
-        console.log("do low");
         params.rateOfReturn = lowLinearRate;
         params.retirementRateOfReturn = lowRetRate;
         const lowResult = this.performLinearAnalysis(params);
 
-        console.log("do high");
         params.rateOfReturn = highLinearRate;
         params.retirementRateOfReturn = highRetRate;
         const highResult = this.performLinearAnalysis(params);
@@ -58,10 +54,13 @@ export class SimulationService {
 
         const mcResult = this.performMonteCarloAnalysis(params);
 
+        console.log(mcResult);
+
         const result: SimulationResult = {
             columnId: column.id,
             result1: laResult.pop()?.value as number,
             result2: mcResult.success,
+            flex: mcResult.flex,
             linearResult: laResult,
             laHigh: highResult,
             laLow: lowResult,
@@ -100,7 +99,12 @@ export class SimulationService {
         const bull: regime = { mu: params.bullRate, sigma: .15, continues: .85 };
         const bear: regime = { mu: params.bearRate, sigma: .22, continues: .30 };
 
-        const results: { netWorth: number, failYear: number }[] = [];
+        const results: { netWorth: number, 
+                            failYear: number, 
+                            hairCut: number, 
+                            totalSpend: number,
+                            flex: number }[] = [];
+
         const paths: number[][] = [];
         const failedPaths: number[][] = [];
         const succeededPaths: number[][] = [];
@@ -110,8 +114,6 @@ export class SimulationService {
         const targetAge = params.longevityAge;
 
         const duration = (targetAge - age) + 1;
-
-        console.log(duration);
 
         const yearlyValues: number[][] = Array.from({ length: duration }, () =>
             new Array(iterations).fill(0)
@@ -127,15 +129,21 @@ export class SimulationService {
             // this is a single iteration . . . .
             let failYear = -1;
             let failed = false;
+            let hairCut = 0;
+            let totalSpend = 0;
 
             const path = this.generateRegimeSwitchingReturns(duration, bull, bear);
             paths.push(path);
             let netWorth = mcStartingValue;
+            let result;
             for (let y = 0; y < duration; y++) {
 
-                netWorth = this.calculateValueForYear(y, params, netWorth, path).result;
+                result = this.calculateValueForYear(y, params, netWorth, path);
 
-                yearlyValues[y][i] = netWorth;
+                yearlyValues[y][i] = result.result;
+                netWorth = result.result;
+                hairCut += result.hairCut;
+                totalSpend += result.totalSpend;
 
                 if (netWorth < 0) {
                     failed = true;
@@ -152,7 +160,7 @@ export class SimulationService {
             }
 
 
-            results.push({ netWorth: netWorth, failYear: failYear });
+            results.push({ netWorth: netWorth, failYear: failYear, hairCut, totalSpend, flex: (hairCut/totalSpend)  });
 
         }
 
@@ -163,7 +171,14 @@ export class SimulationService {
         });
 
 
-        return { success: result * 100, details: results, mcStats, paths, failedPaths, succeededPaths };
+        
+        const flex = results
+            .filter(r => r.failYear === -1)
+            .reduce((sum, r) => sum + r.flex, 0) / 
+            results.filter(r => r.failYear === -1).length || 0;
+
+
+        return { success: result * 100, details: results, mcStats, paths, failedPaths, succeededPaths, flex }; 
 
     }
 
@@ -282,7 +297,9 @@ export class SimulationService {
         coreExpense: number,
         healthCare: number,
         captialEvent: number,
-        pension: number
+        pension: number,
+        hairCut: number,
+        totalSpend: number,
     } {
 
         const age = params.age;
@@ -293,10 +310,7 @@ export class SimulationService {
             ror = path[year];
         } else {
             ror = age + year < retirementAge ? params.rateOfReturn : params.retirementRateOfReturn;
-            console.log(`age: ${age}: linear ror: ${ror}`);
         }
-
-        
 
         const startValue = currentNetWorth;
 
@@ -316,17 +330,18 @@ export class SimulationService {
         const ssAge = params.socialSecurityAge;
 
         const cola = params.cola;
-        let healthCare = params.healthInsurance * 12;
+        let healthCare = params.healthInsurance;
         const inflation = params.inflation;
         const taxRate = params.taxRate;
 
-        let coreExpenses = params.coreExpenses * 12;
-        let flexExpenses = params.flexExpenses * 12;
+        let coreExpenses = params.coreExpenses;
+        let flexExpenses = params.flexExpenses;
 
         const yearlyReduction = params.yearlySpendingReduction;
         const lowerBound = params.lowerBound;
         const upperBound = params.upperBound;
         const widthdrawalTarget = params.targetWithdrawalRate;
+        const guardrails = params.applyGuardrails;
 
         let captialEventAmt = 0;
 
@@ -353,18 +368,23 @@ export class SimulationService {
         healthCare = ((year + age) < 65) && ((year + age) >= retirementAge) ? (((1 + inflation) ** year) * healthCare) : 0;
 
         let expenses = 0;
+        let hairCut = 0;
 
         if (year + age >= retirementAge) {
 
             flexExpenses *= (1 - yearlyReduction) ** (year - (retirementAge - age)) * (1 + inflation) ** year;
             coreExpenses *= (1 + inflation) ** year;
 
-            if (path.length > 0) {
+            if (path.length > 0 && guardrails) {
 
-                if (path[year] < -.01) {
+                if (path[year] < -.10) {
+
+                    hairCut = flexExpenses * .30;
                     flexExpenses *= .70;
-                } else if (((flexExpenses + coreExpenses) / currentNetWorth) > widthdrawalTarget * upperBound) {
 
+                } else if (((flexExpenses + coreExpenses) / currentNetWorth) > widthdrawalTarget * upperBound) {
+                    
+                    hairCut = flexExpenses * .25;
                     flexExpenses *= .75;
 
                 } else if (((flexExpenses + coreExpenses) / currentNetWorth) < widthdrawalTarget * lowerBound) {
@@ -400,8 +420,9 @@ export class SimulationService {
             coreExpense: coreExpenses,
             flexExpnse: flexExpenses,
             captialEvent: captialEventAmt,
-            pension
-              
+            pension,
+            hairCut: hairCut,
+            totalSpend: coreExpenses + flexExpenses + pension + ssPayment
         };
 
     }

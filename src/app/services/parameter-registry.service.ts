@@ -16,7 +16,7 @@ export class ParameterRegistryService {
             min: 18,
             max: 100,
             step: 1,
-            helpText: 'blarrg!!!'
+            helpText: `This is how old you are right now.`
         },
         {
             id: 'retired',
@@ -27,7 +27,7 @@ export class ParameterRegistryService {
             min: 18,
             max: 100,
             step: 1,
-            helpText: 'blarrg!!!'
+            helpText: `This is how old you will be when you want to retire`
         },
         {
             id: 'currentPortfolio',
@@ -39,33 +39,21 @@ export class ParameterRegistryService {
             min: 0,
             max: 100000000,
             step: 100,
-            helpText: 'blarrg!!!'
+            helpText: `This is the current value of your retirement savings (e.g. 401(k)s, IRAs, Taxable Brokerage Accounts, etc.)
+            I generally don't include things like home equity or emergency savings, but if you're going to use those things
+            to fund expenses in retirement, go crazy.`
         },
-        // Finance Group
-        // {
-        //   id: 'portfolio',
-        //   label: 'Portfolio Type',
-        //   type: ParameterType.DROPDOWN,
-        //   group: 'Finance',
-        //   defaultValue: '401k',
-        //   dropdownOptions: [
-        //     { label: '401(k)', value: '401k' },
-        //     { label: 'IRA', value: 'ira' },
-        //     { label: 'Both', value: 'both' }
-        //   ]
-        // },
-
         {
             id: 'coreExpenses',
             label: 'Core Expenses',
             type: ParameterType.NUMBER,
             group: 'Expenses',
             format: ParameterFormat.CURRENCY,
-            defaultValue: 4000,
+            defaultValue: 25000,
             min: 0,
-            max: 50000,
+            max: 10000000,
             step: 1000,
-            helpText: 'blarrg!!!'
+            helpText: 'These are expenses that will <b>not</b> be adjusted based on market conditions.'
         },
         {
             id: 'flexExpenses',
@@ -73,11 +61,14 @@ export class ParameterRegistryService {
             type: ParameterType.NUMBER,
             group: 'Expenses',
             format: ParameterFormat.CURRENCY,
-            defaultValue: 4000,
+            defaultValue: 25000,
             min: 0,
-            max: 500000,
+            max: 10000000,
             step: 1000,
-            helpText: 'blarrg!!!'
+            helpText: `These are expenses that <b>will be</b> adjusted based on market conditions.  
+                        Based on the settings below in the Modeling section, flex expenses will be
+                        adjusted downwards after years with negative returns or if you are widthdrawing more than your 
+                        <i>Target Widthdrawal Rate</>.`
         },
         {
             id: 'healthInsurance',
@@ -85,11 +76,13 @@ export class ParameterRegistryService {
             type: ParameterType.NUMBER,
             group: 'Expenses',
             format: ParameterFormat.CURRENCY,
-            defaultValue: 500,
+            defaultValue: 6000,
             min: 0,
             max: 100000,
             step: 1000,
-            helpText: 'blarrg!!!'
+            helpText: `This is the yearly dollar amount you will need to spend for health insurance if your Retirement
+            Age is less than 65. This amount is added to your expenses for each year that you are retired before 65.  It 
+            does not 'flex'.`
         },
         {
             id: 'capitalEvent1',
@@ -101,7 +94,9 @@ export class ParameterRegistryService {
             min: -10000000,
             max: 10000000,
             step: 1000,
-            helpText: 'blarrg!!!'
+            helpText: `A <b>Capital Event</b> represents a big change to your financial circumstances.  
+            Examples include selling a business or a house, or buying a house (in which case the value should be negative)
+            or an inheritance or taking your 15 kids to DisneyLand (Universal Studios is way better tho).`
         },
         {
             id: 'semiRetiredIncome',
@@ -112,7 +107,11 @@ export class ParameterRegistryService {
             defaultValue: 0,
             min: -10000000,
             max: 10000000,
-            helpText: 'blarrg!!!'
+            helpText: `If you plan on working after you retire, 
+                        perhaps being a yoga teacher has been calling to you for years?  Or you\'re finally going to start that Sweedish-Mexican Fusion Food Truck you've always dreamt about? 
+                        Enter your yearly income from this adventure here.
+                        </br></br></br>
+                        (it is suuuuper weird to type 'dreamt', and apparently, according to the google, in the US 'dreamed' is more common, I don't buy it.)`
         },
         {
             id: 'socialSecurityAmount',
@@ -124,7 +123,7 @@ export class ParameterRegistryService {
             min: 0,
             max: 100000,
             step: 100,
-            helpText: 'blarrg!!!'
+            helpText: `This is the amount you expect to receive from our friends in Washington.  You can look this up here: <a href='www.ssa.gov'>www.ssa.gov</a>.`
         },
         {
             id: 'socialSecurityAge',
@@ -135,7 +134,9 @@ export class ParameterRegistryService {
             min: 62,
             max: 70,
             step: 1,
-            helpText: 'blarrg!!!'
+            helpText:  `This is the age that you will start taking Social Security payments, you can start as early as 62 and wait as long as 70.  If you 
+            start at 62, you're going to get less than if you start at 70.  And you have to start at 70.  I'm not sure what happens if you don't cash the checks
+            they start sending you at 70, but I've heard that two burly men in dark suits come to your house and force you to buy things on Amazon.`
         },
         {
             id: 'pensionAmount',
@@ -147,7 +148,7 @@ export class ParameterRegistryService {
             min: 0,
             max: 100000,
             step: 1,
-            helpText: 'blarrg!!!'
+            helpText: `Just kidding - pensions don't exist.  No, wait, I put this in for one person I know who will be getting a big old Teachers Pension.`
         },
         {
             id: 'pensionAge',
@@ -158,7 +159,7 @@ export class ParameterRegistryService {
             min: 50,
             max: 70,
             step: 1,
-            helpText: 'blarrg!!!'
+            helpText: `The age you will be when you start receiving your pension.  The assumption here is that once you start, you won't stop 'till you're dead.`
         },
         {
             id: 'rateOfReturn',
@@ -170,7 +171,11 @@ export class ParameterRegistryService {
             min: 0,
             max: 0.20,
             step: 0.001,
-            helpText: 'blarrg!!!'
+            helpText: `This is the <b>average</b> rate of return you expect over the course of your working years.  Generally it is a little higher than what you
+            would expect to make in your retired years because when you are retired you'll likely be a bit more conservative.  This is a <b>nominal<b> rate of return
+            which means that it does not take inflation into account.  It is used to perform the Linear Analysis.  If you select the <b>Nominal</b> toggle in the upper
+            right hand corner, then the Linear Analysis will use this rate and increase your expenses, captial events and other items by the amount you specifiy in <b>Inflation</b>
+            below.  If you select the <b>Real</b> toggle in the upper left, then we'll subtract the <b>Inflation</b> amount below from this rate and we won't inflate your expenses.`
         },
         {
             id: 'retirementRateOfReturn',
@@ -182,7 +187,11 @@ export class ParameterRegistryService {
             min: 0,
             max: 0.20,
             step: 0.001,
-            helpText: 'blarrg!!!'
+            helpText: `This is the <b>average</b> rate of return you expect over the course of your retired years.  Generally it is a little lower than what you
+            would expect to make in your working years because when you are retired you'll likely be a bit more conservative.  This is a <b>nominal<b> rate of return
+            which means that it does not take inflation into account.  It is used to perform the Linear Analysis.  If you select the <b>Nominal</b> toggle in the upper
+            right hand corner, then the Linear Analysis will use this rate and increase your expenses, captial events and other items by the amount you specifiy in <b>Inflation</b>
+            below.  If you select the <b>Real</b> toggle in the upper left, then we'll subtract the <b>Inflation</b> amount below from this rate and we won't inflate your expenses.`
         },
         {
             id: 'inflation',
@@ -194,7 +203,7 @@ export class ParameterRegistryService {
             min: 0,
             max: 0.20,
             step: 0.0001,
-            helpText: 'blarrg!!!'
+            helpText: ``
         },
         {
             id: 'cola',
@@ -206,7 +215,7 @@ export class ParameterRegistryService {
             min: 0,
             max: 0.05,
             step: 0.0001,
-            helpText: 'blarrg!!!'
+            helpText: ``
         },
         {
             id: 'taxRate',
@@ -218,7 +227,7 @@ export class ParameterRegistryService {
             min: 0,
             max: 0.60,
             step: 0.0001,
-            helpText: 'blarrg!!!'
+            helpText: ``
         },
         {
             id: 'capitalEvent1Age',
@@ -229,7 +238,7 @@ export class ParameterRegistryService {
             min: 18,
             max: 100,
             step: 1,
-            helpText: 'blarrg!!!'
+            helpText: ``
         },
         {
             id: 'capitalEvent2',
@@ -241,7 +250,7 @@ export class ParameterRegistryService {
             min: -10000000,
             max: 10000000,
             step: 1000,
-            helpText: 'blarrg!!!'
+            helpText: ``
         },
         {
             id: 'capitalEvent2Age',
@@ -252,7 +261,7 @@ export class ParameterRegistryService {
             min: 18,
             max: 100,
             step: 1,
-            helpText: 'blarrg!!!'
+            helpText: ``
         },
         {
             id: 'capitalEvent3',
@@ -264,7 +273,7 @@ export class ParameterRegistryService {
             min: -10000000,
             max: 10000000,
             step: 1000,
-            helpText: 'blarrg!!!'
+            helpText: ``
         },
         {
             id: 'capitalEvent3Age',
@@ -275,7 +284,7 @@ export class ParameterRegistryService {
             min: 18,
             max: 100,
             step: 1,
-            helpText: 'blarrg!!!'
+            helpText: ``
         },
         {
             id: 'semiRetirementDuration',
@@ -286,7 +295,7 @@ export class ParameterRegistryService {
             min: 0,
             max: 50,
             step: 1,
-            helpText: 'blarrg!!!'
+            helpText: ``
         },
         {
             id: 'yearlySpendingReduction',
@@ -298,7 +307,8 @@ export class ParameterRegistryService {
             min: 0,
             max: 0.99,
             step: 0.001,
-            helpText: 'blarrg!!!'
+            helpText: `Generally, research shows that people reduce their retirement spending by about 1% per year, you can adjust this as you see fit.  If you want a constant rate of 
+            spending that never decreases, just set it to Zero (0).`
         },
         {
             id: 'bullRate',
@@ -310,7 +320,7 @@ export class ParameterRegistryService {
             min: 0,
             max: 0.99,
             step: 0.001,
-            helpText: 'blarrg!!!'
+            helpText: `For the Monte Carlo Analysis, this is the rate of return you expect in Bull Markets, which is when the market is performing well / going generally up.`
         },
         {
             id: 'bearRate',
@@ -322,7 +332,7 @@ export class ParameterRegistryService {
             min: -0.99,
             max: 0.99,
             step: 0.001,
-            helpText: 'blarrg!!!'
+            helpText: `For the Monte Carlo Analysis, this is the rate of return you expect in Bear Markets, which is when the market is <b>not</b> performing well / going generally down.`
         },
         {
             id: 'longevityAge',
@@ -333,7 +343,7 @@ export class ParameterRegistryService {
             min: 18,
             max: 120,
             step: 1,
-            helpText: 'blarrg!!!'
+            helpText: `This is the age you plan to live to before the dark spectre of Death comes for you.`
         },
         {
             id: 'currentSavingsRate',
@@ -345,7 +355,7 @@ export class ParameterRegistryService {
             min: 0,
             max: 10000000,
             step: 1,
-            helpText: 'blarrg!!!'
+            helpText: `This is how much you are socking a way for retirement every year, when <b>Nominal</b> is selected, it increases at the same rate as inflation.`
         },
         {
             id: 'targetWithdrawalRate',
@@ -357,7 +367,9 @@ export class ParameterRegistryService {
             min: 0,
             max: 0.20,
             step: 0.001,
-            helpText: 'blarrg!!!'
+            helpText: `When you have <b>Apply Guardrails</b> turned on this value is used to determine if you need to flex your expenses down.  For example, if it is set
+            at the default value of 4%, and your expenses in a given year are higher than 4% of your total portfolio, then the amount of your Flex Expenses will be reduced.  This
+            only applies to the Monte Carlo Analysis.`
         },
         {
             id: 'upperBound',
@@ -369,7 +381,7 @@ export class ParameterRegistryService {
             min: 0,
             max: 2.0,
             step: 0.01,
-            helpText: 'blarrg!!!'
+            helpText: `I haven't written the helpText for this one yet . . . stay tuned`
         },
         {
             id: 'lowerBound',
@@ -381,7 +393,7 @@ export class ParameterRegistryService {
             min: 0,
             max: 2.0,
             step: 0.01,
-            helpText: 'blarrg!!!'
+            helpText: `I haven't written the helpText for this one yet . . . stay tuned`
         },
         {
             id: 'applyGuardrails',
@@ -389,8 +401,16 @@ export class ParameterRegistryService {
             type: ParameterType.BOOLEAN,
             group: 'Modeling',
             defaultValue: true,
-            helpText: 'blarrg!!!'
+            helpText: `I haven't written the helpText for this one yet . . . stay tuned`
         },
+        {
+            id: 'secenarioName',
+            label: 'Scenario Name',
+            type: ParameterType.STRING,
+            group: 'Basics',
+            defaultValue: '',
+            helpText: `This is the name of the scenario - e.g. 'Win PowerBall Jackpot Next Year', 'Marry into British Royalty (but not the poor kind)' or 'Die Penniless and Alone'`
+        }
     ];
 
     getParameters(): ParameterDefinition[] {

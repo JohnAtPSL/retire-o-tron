@@ -123,8 +123,12 @@ export class RowHeaderComponent implements ICellRendererAngularComp {
   onHelpClick(event: Event): void {
     event.stopPropagation();
     const paramDef = this.params.data?.parameterDef;
-    if (paramDef?.helpText && this.params.onShowHelp) {
-      this.params.onShowHelp(this.params.value, paramDef.helpText);
+
+    const helpText = paramDef?.helpText ? paramDef.helpText : this.params.data.helpText;
+    const paramName = this.params.value ? this.params.value : "whoops";
+
+    if (helpText && this.params.onShowHelp) {
+      this.params.onShowHelp(this.params.value, helpText);
     }
   }
 }

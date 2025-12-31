@@ -23,6 +23,7 @@ export interface SimulationResult {
   laLow?: YearlyData[];
   mcResult?: MonteCarloResult;
   failYears?: number[];
+  flex: number;
 }
 
 export interface MonteCarloResult {
@@ -32,4 +33,5 @@ export interface MonteCarloResult {
     paths: number[][];
     failedPaths: number[][];
     succeededPaths: number[][];
+    flex: number;
 }

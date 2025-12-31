@@ -176,11 +176,11 @@
   <app-help-modal *ngIf="showHelpModal" (close)="showHelpModal = false"></app-help-modal>
   
   <!-- Parameter Help Modal -->
-  <div *ngIf="showParameterHelpModal" class="help-modal-overlay" (click)="closeParameterHelp()">
-    <div class="help-modal-content" (click)="$event.stopPropagation()">
-      <button class="help-modal-close" (click)="closeParameterHelp()">&times;</button>
+  <div class="help-modal-overlay" *ngIf="showParameterHelpModal" (click)="closeParameterHelp()">
+    <div class="help-modal-content parameter-help-modal" (click)="$event.stopPropagation()">
+      <button class="help-modal-close" (click)="closeParameterHelp()">×</button>
       <h3>{{ parameterHelpTitle }}</h3>
-      <p>{{ parameterHelpText }}</p>
+      <div class="parameter-help-content" [innerHTML]="parameterHelpText"></div>
     </div>
   </div>
 </div>
