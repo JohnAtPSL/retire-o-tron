@@ -43,6 +43,13 @@ jobs:
           npx ng version
           npx ng build --configuration production --base-href "${BASE_HREF}"
 
+      - name: Debug dist contents
+        run: |
+          echo "Listing dist:"
+          ls -la dist
+          echo "Find index.html:"
+          find dist -maxdepth 3 -name index.html -print -exec ls -la {} \;
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
