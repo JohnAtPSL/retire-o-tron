@@ -1,0 +1,15 @@
+<div class="modal-overlay">
+  <div class="modal-dialog" (click)="onContentClick($event)">
+    <div class="modal-content">
+      <h1>Welcome to Retire-o-Tron!</h1>
+      <div class="disclaimer-content">
+        <p>This site is for entertainment purposes only and does not make any claims to accuracy whatsoever.</p>
+        <p class="warning">USE AT YOUR OWN RISK!!</p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-accept" (click)="onAccept()">I Accept the Risk</button>
+        <button class="btn-reject" (click)="onReject()">I do not accept any risk</button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -12,6 +12,7 @@ import { ParameterDefinition, ParameterType, ParameterFormat } from '../../model
 import { SimulationColumn } from '../../models/simulation-column.model';
 import { SimulationResult } from '../../models/simulation-result.model';
 import { HelpModalComponent } from '../help-modal/help-modal.component';
+import { WelcomeModalComponent } from '../welcome-modal/welcome-modal.component';
 import { ColumnHeaderComponent } from '../column-header/column-header.component';
 import { RowHeaderComponent } from '../row-header/row-header.component';
 import { ComparisonChartComponent } from '../comparison-chart/comparison-chart.component';
@@ -35,7 +36,7 @@ interface GridRow {
 @Component({
   selector: 'app-simulation-grid',
   standalone: true,
-  imports: [CommonModule, AgGridAngular, HelpModalComponent, ComparisonChartComponent, MCSuccessComparison],
+  imports: [CommonModule, AgGridAngular, HelpModalComponent, WelcomeModalComponent, ComparisonChartComponent, MCSuccessComparison],
   templateUrl: './simulation-grid.component.html',
   styleUrls: ['./simulation-grid.component.scss']
 })
@@ -79,6 +80,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
   inflationMode: 'real' | 'nominal' = 'real';
   showHelpModal = false;
   showParameterHelpModal = false;
+  showWelcomeModal = false;
   parameterHelpTitle = '';
   parameterHelpText = '';
 
@@ -89,6 +91,7 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
   ) { }
 
   ngOnInit(): void {
+    this.checkFirstVisit();
     this.initializeColumns();
     this.initializeExpandedGroups();
     this.setupColumnDefinitions();
@@ -449,6 +452,21 @@ export class SimulationGridComponent implements OnInit, OnDestroy, AfterViewInit
     if (this.gridApi) {
       this.gridApi.setGridOption('rowData', this.rowData);
     }
+  }
+
+  private checkFirstVisit(): void {
+    if (!this.storageService.hasAcceptedWelcome()) {
+      this.showWelcomeModal = true;
+    }
+  }
+
+  onAcceptWelcome(): void {
+    this.storageService.setWelcomeAccepted();
+    this.showWelcomeModal = false;
+  }
+
+  onRejectWelcome(): void {
+    window.location.href = 'https://www.yahoo.com';
   }
 
   showParameterHelp(title: string, helpText: string): void {

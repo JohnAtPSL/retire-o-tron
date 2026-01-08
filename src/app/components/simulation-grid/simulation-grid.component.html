@@ -175,6 +175,9 @@
   <!-- Help Modal -->
   <app-help-modal *ngIf="showHelpModal" (close)="showHelpModal = false"></app-help-modal>
   
+  <!-- Welcome Modal -->
+  <app-welcome-modal *ngIf="showWelcomeModal" (accept)="onAcceptWelcome()" (reject)="onRejectWelcome()"></app-welcome-modal>
+  
   <!-- Parameter Help Modal -->
   <div class="help-modal-overlay" *ngIf="showParameterHelpModal" (click)="closeParameterHelp()">
     <div class="help-modal-content parameter-help-modal" (click)="$event.stopPropagation()">
