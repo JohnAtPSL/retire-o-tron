@@ -6,6 +6,7 @@ import { SimulationColumn } from '../models/simulation-column.model';
 })
 export class StorageService {
   private readonly STORAGE_KEY = 'retireotron_columns';
+  private readonly WELCOME_ACCEPTED_KEY = 'retireotron_welcome_accepted';
 
   saveColumns(columns: SimulationColumn[]): void {
     try {
@@ -27,5 +28,22 @@ export class StorageService {
 
   clearColumns(): void {
     localStorage.removeItem(this.STORAGE_KEY);
+  }
+
+  hasAcceptedWelcome(): boolean {
+    try {
+      return localStorage.getItem(this.WELCOME_ACCEPTED_KEY) === 'true';
+    } catch (error) {
+      console.error('Error checking welcome status:', error);
+      return false;
+    }
+  }
+
+  setWelcomeAccepted(): void {
+    try {
+      localStorage.setItem(this.WELCOME_ACCEPTED_KEY, 'true');
+    } catch (error) {
+      console.error('Error setting welcome status:', error);
+    }
   }
 }
